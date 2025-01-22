@@ -1,0 +1,44 @@
+YAW | yet_another_wizz v2.5.9.dev352+g0f2205e
+INF | running in multiprocessing environment with 64 workers
+INF | loading 111M records in 7 chunks from FITS file: /pscratch/sd/q/qhang/desi-lya/photometry-catalogue-overlap-zmin-1.8.fits
+DBG | selecting input columns: RA, DEC
+DBG | creating 64 patches
+INF | computing patch centers from subset of 800K records
+DBG | running preprocessing on 64 workers
+INF | using cache directory: /pscratch/sd/q/qhang/desi-lya/yaw/cache/unknown
+INF | computing patch metadata
+DBG | running parallel jobs on 64 workers
+INF | loading 4.56M records in 1 chunks from FITS file: /pscratch/sd/q/qhang/desi-lya/delta-laura-comb-overlap.fits
+DBG | selecting input columns: RA, DEC, Z, DELTAF
+DBG | applying 64 patches
+DBG | running preprocessing on 64 workers
+INF | using cache directory: /pscratch/sd/q/qhang/desi-lya/yaw/cache/reference
+INF | computing patch metadata
+DBG | running parallel jobs on 64 workers
+INF | building trees for 2 catalogs
+DBG | building patch-wise trees (using 20 bins)
+DBG | running parallel jobs on 64 workers
+INF | computing auto-correlation with DD
+DBG | computing patch linkage with max. separation of 5.82e-03 rad
+DBG | created patch linkage with 336 patch pairs
+DBG | using 1 scales without weighting
+DBG | running parallel jobs on 64 workers
+DBG | running parallel jobs on 64 workers
+INF | building trees for 2 catalogs
+DBG | building patch-wise trees (using 20 bins)
+DBG | running parallel jobs on 64 workers
+DBG | building patch-wise trees (unbinned)
+DBG | running parallel jobs on 64 workers
+INF | computing cross-correlation with DD
+DBG | computing patch linkage with max. separation of 5.82e-03 rad
+DBG | created patch linkage with 338 patch pairs
+DBG | using 1 scales without weighting
+DBG | running parallel jobs on 64 workers
+DBG | running parallel jobs on 64 workers
+INF | writing CorrFunc_scalar to: /pscratch/sd/q/qhang/desi-lya/yaw/w_ss.hdf5
+INF | writing CorrFunc_scalar to: /pscratch/sd/q/qhang/desi-lya/yaw/w_sp.hdf5
+DBG | sampling correlation function with estimator 'SC'
+DBG | sampling correlation function with estimator 'SC'
+DBG | computing clustering redshifts from correlation function samples
+DBG | mitigating reference sample bias
+INF | writing RedshiftData to: /pscratch/sd/q/qhang/desi-lya/yaw/nz_estimate.{dat,smp,cov}
