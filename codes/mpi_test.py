@@ -14,12 +14,15 @@ print(rank, my_tasks)
 
 s = stats.Stats(comm)
 
-ones = []
 for task in my_tasks:
-    ones.append(np.ones(5)*task)
+    if task  == my_tasks[0]:
+        ones = np.ones(task + 1)*task
+    else:
+        ones=np.append(ones, np.ones(task + 1)*task)
+    
+s.get_stacks()
+allones = utils.allgather(ones,comm)
 
-#s.get_stacks()
-#allones = utils.allgatherv(ones,comm)
 fname="mpi_test.txt"
-ones = np.asarray(ones)
-np.savetxt(fname, ones)
+allones = np.array(allones)
+np.savetxt(fname, allones)
