@@ -109,8 +109,8 @@ if args.sub == "sub_yaw_raw":
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(1,10):
-        comm=f'srun -n 16 python measure_yaw-w-random.py -sim_num {ii} -sim_mode 0 -source 2 -zcut 1.8 3.0 -zbins_file /pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 1> lya-yaw-raw-{ii}.log \n\n'
+    for ii in range(3, 10):
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 0 -source 2 -zcut 1.8 3.0 -zbins_file /pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 1 > lya-yaw-raw-{ii}.log \n\n'
         output=f"lya-yaw-raw-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -126,7 +126,7 @@ if args.sub == "sub_yaw_true_cont":
     env="yaw_env"
     
     for ii in range(1,10):
-        comm=f'srun -n 16 python measure_yaw-w-random.py -sim_num {ii} -sim_mode 1 -source 2 -zcut 1.8 3.0 -zbins_file /pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 1> lya-yaw-true_cont-{ii}.log \n\n'
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 1 -source 2 -zcut 1.8 3.0 -zbins_file /pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 1 > lya-yaw-true_cont-{ii}.log \n\n'
         output=f"lya-yaw-true_cont-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -142,7 +142,7 @@ if args.sub == "sub_yaw_baseline":
     env="yaw_env"
     
     for ii in range(1,10):
-        comm=f'srun -n 16 python measure_yaw-w-random.py -sim_num {ii} -sim_mode 2 -source 2 -zcut 1.8 3.0 -zbins_file /pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 1> lya-yaw-baseline-{ii}.log \n\n'
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 2 -source 2 -zcut 1.8 3.0 -zbins_file /pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 1 > lya-yaw-baseline-{ii}.log \n\n'
         output=f"lya-yaw-baseline-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,

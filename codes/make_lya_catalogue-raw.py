@@ -90,6 +90,7 @@ if args.run_mode == 0 or args.run_mode == 2:
     emit = 1215.67
     lambda_rf_min=1040
     lambda_rf_max=1200
+    dodgy_lowz_cut=3600
     
     if args.zbins_file == "":
         bin_edges = args.zbins
@@ -158,14 +159,16 @@ if args.run_mode == 0 or args.run_mode == 2:
                 lambda_obs_min=lambda_rf_min*(1+zqso)
                 lambda_obs_max=lambda_rf_max*(1+zqso)
                 in_forest=np.logical_and(wave > lambda_obs_min, wave < lambda_obs_max)
+                in_forest *= wave > dodgy_lowz_cut
     
                 # now bin:
                 for kk in range(nbin):
                     useind = (bin_tag == kk+1)*in_forest*sel1
                     if len(objred[useind])>0:
                         num_pix = len(objred[useind])
-                        deltaF = np.sum(delta_l[useind])/num_pix
                         totweights = np.sum(weight_l[useind])
+                        # weighted average of deltaF
+                        deltaF = np.sum(delta_l[useind]*weight_l[useind])/totweights
 
                         data_holder['RA'] = np.append(data_holder['RA'],ra)
                         data_holder['DEC'] = np.append(data_holder['DEC'],dec)

@@ -53,6 +53,8 @@ def save_catalog_to_fits(fname, data_matrix,overwrite=True):
 if args.sim_mode == 1:
     sim_mode_tag = "true_cont"
 elif args.sim_mode == 2:
+    sim_mode_tag = "uncontaminated"
+elif args.sim_mode == 3:
     sim_mode_tag = "baseline"
 
 # read in redshift bin somewhere, or save it with the results;
@@ -84,6 +86,7 @@ if args.run_mode == 0 or args.run_mode == 2:
     emit = 1215.67
     lambda_rf_min=1040
     lambda_rf_max=1200
+    dodgy_lowz_cut=3600
     
     if args.zbins_file == "":
         bin_edges = args.zbins
@@ -136,6 +139,7 @@ if args.run_mode == 0 or args.run_mode == 2:
             lambda_obs_min=lambda_rf_min*(1+zqso)
             lambda_obs_max=lambda_rf_max*(1+zqso)
             in_forest=np.logical_and(wave[None,:] > lambda_obs_min[:,None], wave[None,:] < lambda_obs_max[:,None])
+            in_forest *= wave[None,:] > dodgy_lowz_cut
             
             # select objects that lie inside the mask
             pix = hp.ang2pix(nside, np.radians(90 - dec), np.radians(ra))
@@ -159,18 +163,19 @@ if args.run_mode == 0 or args.run_mode == 2:
                     obj_mask = num_pix>0
                     # just in case, should get rid of any nan or inf
                     delta_0 = np.nan_to_num(delta, 0)
+                    weights_0 = np.nan_to_num(weights, 0)
                 
                     # compute delta_F
-                    avg_deltaf = np.sum((delta_0*useind.astype(int))[obj_mask,:],axis=1)
-                    avg_deltaf = avg_deltaf/num_pix[obj_mask]
+                    sum_deltaf = np.sum(((delta_0*weights_0)*useind.astype(int))[obj_mask,:],axis=1)
+                    tot_weights = np.sum((weights_0*useind.astype(int))[obj_mask,:],axis=1)
+                    avg_deltaf = sum_deltaf/tot_weights # weighted average
+                    #avg_deltaf = avg_deltaf/num_pix[obj_mask]
                 
                     # compute tot weight
-                    weights_0 = np.nan_to_num(weights, 0)
-                    tot_weights = np.sum(weights*useind.astype(int),axis=1)
-        
+                    #tot_weights = np.sum(weights_0*useind.astype(int),axis=1)
                     npix_file = np.append(npix_file, num_pix[obj_mask])
                     deltaf_file = np.append(deltaf_file, avg_deltaf)
-                    totweights_file = np.append(totweights_file, tot_weights[obj_mask])
+                    totweights_file = np.append(totweights_file, tot_weights)
                     ra_file = np.append(ra_file, ra[obj_mask])
                     dec_file = np.append(dec_file, dec[obj_mask])
                     z_file = np.append(z_file, np.ones(len(num_pix[obj_mask]))*zbin_centre[kk])
