@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser(description='Compute stacked kappa profile for 
 parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
 parser.add_argument('-sim_mode', type=int, default=0, help='0=raw, 1=true continuum deltas, 2=uncontaminated mocks (baseline)')
 parser.add_argument('-source', type=int, default=2, help='1=QSO; 2=galaxies')
+parser.add_argument('-deltaf_weight', type=int, default=2, help='0=no weight (uniform weight), 1=NPIX, 2=TOTWEIGHTS')
 parser.add_argument('-zcut', nargs='+', default=[1.8,3.0], help='Cuts in redshift. Provide bin edges')
 parser.add_argument('-zbins_file', type=str, default="/pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt", help='Redshift bin edges file, if provided will overwrite zbins.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
@@ -74,13 +75,26 @@ if args.sim_mode == 0:
 elif args.sim_mode == 1:
     sim_mode_tag = "true_cont"
 elif args.sim_mode == 2:
+    sim_mode_tag = "uncontaminated"
+elif args.sim_mode == 3:
     sim_mode_tag = "baseline"
+elif args.sim_mode == 4:
+    sim_mode_tag = "LyCAN_noSNRc"
+elif args.sim_mode == 5:
+    sim_mode_tag = "LyCAN_SNRc"
 
 if args.source == 1:
     type_tag = "QSO"
 elif args.source == 2:
     type_tag = "unknown"
 
+if args.deltaf_weight == 0:
+    ref_weight_name = None
+elif args.deltaf_weight == 1:
+    ref_weight_name = 'NPIX'
+elif args.deltaf_weight == 2:
+    ref_weight_name = 'TOTWIEGHTS'
+    
 zbins = args.zcut
 
 saveroot = args.outroot + f"run-{args.sim_num}/"
@@ -134,7 +148,7 @@ if args.plot != 2:
         ra_name="RA",
         dec_name="DEC",
         redshift_name="Z",
-        weight_name="TOTWEIGHTS",
+        weight_name=ref_weight_name,
         kappa_name="DELTA_F",
         patch_centers=patch_centers,
         progress=PROGRESS,

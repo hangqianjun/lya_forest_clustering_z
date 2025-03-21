@@ -19,12 +19,13 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Compute stacked kappa profile for Dirac mocks.')
 parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
+parser.add_argument('-SNRcut', type=int, default=0, help='0=noSNRc, 1=SNRc')
 parser.add_argument('-zbins', nargs='+', default=[2,3,40], help='Zmin, Zmax, Nbin')
 parser.add_argument('-nchunks', type=int, default=1, help='How many chunks to split the data')
 parser.add_argument('-zbins_file', type=str, default="", help='Redshift bin edges file, if provided will overwrite zbins.')
 parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
-parser.add_argument('-run_mode', type=int, default=0, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.')
+parser.add_argument('-run_mode', type=int, default=0, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.') 
 args = parser.parse_args()
 
 # def save fits file:
@@ -46,11 +47,19 @@ def save_catalog_to_fits(fname, data_matrix, overwrite=True):
     t = fits.BinTableHDU.from_columns(c)
     t.writeto(fname, overwrite=overwrite)
 
-sim_mode_tag = 'raw'
+sim_mode_tag = "LyCAN"
+if args.SNRcut == 0:
+    lycan_mode_tag = 'noSNRcut'
+elif args.SNRcut == 1:
+    lycan_mode_tag = 'SNRcut'
+
+sim_mode_tag += ("_" + lycan_mode_tag)
 
 # read in redshift bin somewhere, or save it with the results;
-simroot = "/global/cfs/cdirs/desicollab/users/lauracdp/photo-z_box/lya_mocks/mock_analysis/qq_desi_y5/skewers_desi_footprint.5/"
-simroot += f"analysis-{args.sim_num}/jura-0/{sim_mode_tag}/deltas_lya/Delta/"
+simroot = "/global/cfs/cdirs/desi/users/wmturner/photo-z/deltas/"
+simroot += f"mock-{args.sim_num}/{lycan_mode_tag}/Delta/"
+
+#print(simroot)
 
 saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
 
@@ -64,10 +73,11 @@ mask_degrade = hp.ud_grade(mask, 16)
 hp.mollview(mask_degrade)
 pixels_in_mask = np.arange(12*16**2)[mask_degrade.astype(bool)]
 
-fname_list = glob(simroot + "*.fits.gz", recursive = True)
+fname_list = glob(simroot + "*.fits", recursive = True)
+
 fname_pix = []
 for i in range(len(fname_list)):
-    fname_pix.append(int(fname_list[i][(len(simroot) + 6):-8]))
+    fname_pix.append(int(fname_list[i][(len(simroot) + 6):-5]))
 fname_pix = np.array(fname_pix)
 fname_ind = np.in1d(fname_pix, pixels_in_mask)
 fname_list = np.array(fname_list)[fname_ind]
@@ -91,7 +101,6 @@ if args.run_mode == 0 or args.run_mode == 2:
         elif kk == args.nchunks - 1 :
             fname_chunks.append(fname_list[(kk*Nfiles):])
         print(f"Chunk {kk} contains {len(fname_chunks[kk])} files.")
-    
     
     if args.zbins_file == "":
         nbin = int(args.zbins[2])
@@ -137,13 +146,12 @@ if args.run_mode == 0 or args.run_mode == 2:
     
             for jj in range(nobj):
     
-                wavelength_log = delta_F[jj+1].data['LOGLAM']
+                wave = delta_F[jj+1].data['LAMBDA']
                 delta_l = delta_F[jj+1].data['DELTA']
                 weight_l = delta_F[jj+1].data['WEIGHT']
                 #cont_l = delta_F[1].data['CONT']
                 
                 # for each, bin in redshift: 
-                wave = 10**wavelength_log
                 objred = (wave-emit)/emit
                 
                 # group into coarse redshift bins
@@ -170,18 +178,19 @@ if args.run_mode == 0 or args.run_mode == 2:
                     if len(objred[useind])>0:
                         num_pix = len(objred[useind])
                         totweights = np.sum(weight_l[useind])
-                        
-                        # direct average of deltaF
+
+                        # here we save both weighted and non-weighted deltas
                         deltaF = np.sum(delta_l[useind])/num_pix
+                        
                         # weighted average of deltaF
-                        deltaF_w = np.sum(delta_l[useind]*weight_l[useind])/totweights
+                        deltaFw = np.sum(delta_l[useind]*weight_l[useind])/totweights
 
                         data_holder['RA'] = np.append(data_holder['RA'],ra)
                         data_holder['DEC'] = np.append(data_holder['DEC'],dec)
                         data_holder['ZQSO'] = np.append(data_holder['ZQSO'],zqso)
                         data_holder['Z'] = np.append(data_holder['Z'],zbin_centre[kk])
                         data_holder['DELTA_F'] = np.append(data_holder['DELTA_F'],deltaF)
-                        data_holder['DELTA_F_WEIGHTED'] = np.append(data_holder['DELTA_F_WEIGHTED'],deltaF)
+                        data_holder['DELTA_F_WEIGHTED'] = np.append(data_holder['DELTA_F_WEIGHTED'],deltaFw)
                         data_holder['NPIX'] = np.append(data_holder['NPIX'],num_pix)
                         data_holder['TOTWEIGHTS'] = np.append(data_holder['TOTWEIGHTS'],totweights)
         

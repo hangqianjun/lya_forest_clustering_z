@@ -19,11 +19,11 @@ from glob import glob
 
 parser = argparse.ArgumentParser(description='Compute stacked kappa profile for Dirac mocks.')
 parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
-parser.add_argument('-sim_mode', type=int, default=0, help='1=true continuum deltas, 2=uncontaminated mocks (baseline)')
+parser.add_argument('-sim_mode', type=int, default=0, help='1=true continuum deltas, 2=uncontaminated, 3=baseline (depricated)')
 #parser.add_argument('-sim_root', type=str, default="", help='If provided overwrites the sim_num, load sim from this directory. File structure has to be consistent.')
-parser.add_argument('-zbins', nargs='+', default=[1.8,3], help='Redshift bin edges to compute delta F')
+parser.add_argument('-zbins', nargs='+', default=[2,3,40], help='Zmin, Zmax, Nbin')
 parser.add_argument('-nchunks', type=int, default=1, help='How many chunks to split the data')
-parser.add_argument('-zbins_file', type=str, default="/pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt", help='Redshift bin edges file, if provided will overwrite zbins.')
+parser.add_argument('-zbins_file', type=str, default="", help='Redshift bin edges file, if provided will overwrite zbins.')
 parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
 parser.add_argument('-run_mode', type=int, default=0, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.') 
@@ -48,14 +48,13 @@ def save_catalog_to_fits(fname, data_matrix,overwrite=True):
     t = fits.BinTableHDU.from_columns(c)
     t.writeto(fname,overwrite=overwrite)
 
-#if args.sim_mode == 0:
-#    sim_mode_tag = "raw"
 if args.sim_mode == 1:
     sim_mode_tag = "true_cont"
 elif args.sim_mode == 2:
     sim_mode_tag = "uncontaminated"
 elif args.sim_mode == 3:
     sim_mode_tag = "baseline"
+    print("Warning: depricated.")
 
 # read in redshift bin somewhere, or save it with the results;
 simroot = "/global/cfs/cdirs/desicollab/users/lauracdp/photo-z_box/lya_mocks/mock_analysis/qq_desi_y5/skewers_desi_footprint.5/"
@@ -68,10 +67,29 @@ nside=hp.get_nside(mask)
 npix = round(12*nside**2,0)
 usepix = np.arange(npix)[mask==1]
 
+# Determine list of fnames to use within the mask:
+mask_degrade = hp.ud_grade(mask, 16)
+hp.mollview(mask_degrade)
+pixels_in_mask = np.arange(12*16**2)[mask_degrade.astype(bool)]
+
+fname_list = glob(simroot + "*.fits.gz", recursive = True)
+fname_pix = []
+for i in range(len(fname_list)):
+    fname_pix.append(int(fname_list[i][(len(simroot) + 6):-8]))
+fname_pix = np.array(fname_pix)
+fname_ind = np.in1d(fname_pix, pixels_in_mask)
+fname_list = np.array(fname_list)[fname_ind]
+print("Total files to go through: ", len(fname_list))
+
+emit = 1215.67
+lambda_rf_min=1040
+lambda_rf_max=1200
+dodgy_lowz_cut=3600
+
 if args.run_mode == 0 or args.run_mode == 2:
     
-    fname_list = glob(simroot + "*.fits.gz", recursive = True)
-    print("Total files to go through: ", len(fname_list))
+    #fname_list = glob(simroot + "*.fits.gz", recursive = True)
+    #print("Total files to go through: ", len(fname_list))
     print(f"Splitting into {args.nchunks} chunks...")
     # here, split the file list to chunks and send to different nodes:
     Nfiles = int(len(fname_list)/args.nchunks)+1
@@ -83,20 +101,15 @@ if args.run_mode == 0 or args.run_mode == 2:
             fname_chunks.append(fname_list[(kk*Nfiles):])
         print(f"Chunk {kk} contains {len(fname_chunks[kk])} files.")
     
-    emit = 1215.67
-    lambda_rf_min=1040
-    lambda_rf_max=1200
-    dodgy_lowz_cut=3600
-    
     if args.zbins_file == "":
-        bin_edges = args.zbins
-        zbin_centre = []
+        nbin = int(args.zbins[2])
+        bin_edges = np.linspace(float(args.zbins[0]), float(args.zbins[1]), nbin+1)
+        zbin_centre = (bin_edges[1:] + bin_edges[:-1])/2.
     elif args.zbins_file != "":
         fin = np.loadtxt(args.zbins_file)
         bin_edges = fin[:,0]
         zbin_centre = fin[:-1,1]
-    nbin = len(bin_edges)-1
-    
+        nbin = len(bin_edges)-1
     
     # here call mpi
     if args.run_mode == 0:
@@ -113,6 +126,7 @@ if args.run_mode == 0 or args.run_mode == 2:
         Z = np.array([])
         ZQSO = np.array([])
         DELTA_F = np.array([])
+        DELTA_F_WEIGHTED = np.array([])
         NPIX = np.array([])
         TOTWEIGHTS = np.array([])
     
@@ -148,6 +162,7 @@ if args.run_mode == 0 or args.run_mode == 2:
             # now bin:
             npix_file = np.array([])
             deltaf_file = np.array([])
+            deltaf_w_file = np.array([])
             totweights_file = np.array([])
             ra_file = np.array([])
             dec_file = np.array([])
@@ -158,23 +173,28 @@ if args.run_mode == 0 or args.run_mode == 2:
                 if (kk + 1) in bin_tag:
                     useind = (bin_tag == kk+1)[None,:]*in_forest*sel1[:,None]
                     num_pix = np.sum(useind,axis=1)
-                
-                    # make a mask for objects without any pixel
-                    obj_mask = num_pix>0
+                    
                     # just in case, should get rid of any nan or inf
                     delta_0 = np.nan_to_num(delta, 0)
                     weights_0 = np.nan_to_num(weights, 0)
+
+                    # make a mask for objects without any pixel
+                    obj_mask = (num_pix>0)
+
+                    # compute delta_F not-weighted
+                    sum_deltaf = np.sum(((delta_0)*useind.astype(int))[obj_mask,:],axis=1)
+                    avg_deltaf = sum_deltaf/num_pix[obj_mask]
                 
                     # compute delta_F
-                    sum_deltaf = np.sum(((delta_0*weights_0)*useind.astype(int))[obj_mask,:],axis=1)
+                    sum_deltaf_w = np.sum(((delta_0*weights_0)*useind.astype(int))[obj_mask,:],axis=1)
                     tot_weights = np.sum((weights_0*useind.astype(int))[obj_mask,:],axis=1)
-                    avg_deltaf = sum_deltaf/tot_weights # weighted average
-                    #avg_deltaf = avg_deltaf/num_pix[obj_mask]
-                
-                    # compute tot weight
-                    #tot_weights = np.sum(weights_0*useind.astype(int),axis=1)
+                    avg_deltaf_w = sum_deltaf/tot_weights # weighted average
+                    # get rid of nan
+                    avg_deltaf_w = np.nan_to_num(avg_deltaf_w, 0)
+
                     npix_file = np.append(npix_file, num_pix[obj_mask])
                     deltaf_file = np.append(deltaf_file, avg_deltaf)
+                    deltaf_w_file = np.append(deltaf_file, avg_deltaf_w)
                     totweights_file = np.append(totweights_file, tot_weights)
                     ra_file = np.append(ra_file, ra[obj_mask])
                     dec_file = np.append(dec_file, dec[obj_mask])
@@ -188,6 +208,7 @@ if args.run_mode == 0 or args.run_mode == 2:
             Z=np.append(Z, z_file)
             ZQSO=np.append(ZQSO, zq_file)
             DELTA_F=np.append(DELTA_F, deltaf_file)
+            DELTA_F_WEIGHTED=np.append(DELTA_F_WEIGHTED, deltaf_w_file)
             NPIX=np.append(NPIX, npix_file)
             TOTWEIGHTS=np.append(TOTWEIGHTS, totweights_file)
         
@@ -197,6 +218,7 @@ if args.run_mode == 0 or args.run_mode == 2:
         'Z': Z,
         'ZQSO': ZQSO,
         'DELTA_F': DELTA_F,
+        'DELTA_F_WEIGHTED': DELTA_F_WEIGHTED,
         'NPIX': NPIX,
         'TOTWEIGHTS': TOTWEIGHTS,
         }
@@ -211,7 +233,7 @@ elif args.run_mode == 1:
 
     print("Combining chunks...")
     
-    keys = ['RA', 'DEC', 'Z', 'ZQSO', 'DELTA_F', 'NPIX', 'TOTWEIGHTS']
+    keys = ['RA', 'DEC', 'Z', 'ZQSO', 'DELTA_F', 'DELTA_F_WEIGHTED', 'NPIX', 'TOTWEIGHTS']
     
     data_holder = {}
     for key in keys:
