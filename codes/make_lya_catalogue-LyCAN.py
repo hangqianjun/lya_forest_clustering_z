@@ -26,6 +26,7 @@ parser.add_argument('-zbins_file', type=str, default="", help='Redshift bin edge
 parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
 parser.add_argument('-run_mode', type=int, default=0, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.') 
+parser.add_argument('-cat_tag', type=str, default="", help="Custom tag added to the catalogue folder to distinguish different settings, such as number of zbins. If using all above default setting, the default 'catalogue/' folder is assumed.")
 args = parser.parse_args()
 
 # def save fits file:
@@ -61,7 +62,10 @@ simroot += f"mock-{args.sim_num}/{lycan_mode_tag}/Delta/"
 
 #print(simroot)
 
-saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
+if args.cat_tag == "":
+    saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
+else:
+    saveroot = args.outroot + f"run-{args.sim_num}/catalogue-{args.cat_tag}/"
 
 mask = hp.read_map(args.mask)
 nside=hp.get_nside(mask)
@@ -73,11 +77,14 @@ mask_degrade = hp.ud_grade(mask, 16)
 hp.mollview(mask_degrade)
 pixels_in_mask = np.arange(12*16**2)[mask_degrade.astype(bool)]
 
+pixels_in_mask = hp.ring2nest(16,pixels_in_mask)
+
 fname_list = glob(simroot + "*.fits", recursive = True)
 
 fname_pix = []
 for i in range(len(fname_list)):
     fname_pix.append(int(fname_list[i][(len(simroot) + 6):-5]))
+
 fname_pix = np.array(fname_pix)
 fname_ind = np.in1d(fname_pix, pixels_in_mask)
 fname_list = np.array(fname_list)[fname_ind]
@@ -117,14 +124,15 @@ if args.run_mode == 0 or args.run_mode == 2:
         comm,rank,my_tasks = mpi.distribute(args.nchunks)
         s = stats.Stats(comm)
     elif args.run_mode == 2:
-        my_tasks = [20]
+        my_tasks = [37]
 
+    #for task in my_tasks:
     for task in my_tasks:
         
         use_fname_list = fname_chunks[task]
 
-        if args.run_mode == 2:
-            use_fname_list = [use_fname_list[0]]
+        #if args.run_mode == 2:
+        #    use_fname_list = [use_fname_list[0]]
         
         data_holder={
             'RA': np.array([]),
@@ -175,6 +183,7 @@ if args.run_mode == 0 or args.run_mode == 2:
                 # now bin:
                 for kk in range(nbin):
                     useind = (bin_tag == kk+1)*in_forest*sel1
+                    
                     if len(objred[useind])>0:
                         num_pix = len(objred[useind])
                         totweights = np.sum(weight_l[useind])

@@ -26,7 +26,8 @@ parser.add_argument('-nchunks', type=int, default=1, help='How many chunks to sp
 parser.add_argument('-zbins_file', type=str, default="", help='Redshift bin edges file, if provided will overwrite zbins.')
 parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
-parser.add_argument('-run_mode', type=int, default=0, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.') 
+parser.add_argument('-run_mode', type=int, default=0, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.')
+parser.add_argument('-cat_tag', type=str, default="", help="Custom tag added to the catalogue folder to distinguish different settings, such as number of zbins. If using all above default setting, the default 'catalogue/' folder is assumed.")
 args = parser.parse_args()
 
 # functions
@@ -60,7 +61,10 @@ elif args.sim_mode == 3:
 simroot = "/global/cfs/cdirs/desicollab/users/lauracdp/photo-z_box/lya_mocks/mock_analysis/qq_desi_y5/skewers_desi_footprint.5/"
 simroot += f"analysis-{args.sim_num}/jura-0/{sim_mode_tag}/deltas_lya/Delta/"
 
-saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
+if args.cat_tag == "":
+    saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
+else:
+    saveroot = args.outroot + f"run-{args.sim_num}/catalogue-{args.cat_tag}/"
 
 mask = hp.read_map(args.mask)
 nside=hp.get_nside(mask)
@@ -116,7 +120,7 @@ if args.run_mode == 0 or args.run_mode == 2:
         comm,rank,my_tasks = mpi.distribute(args.nchunks)
         s = stats.Stats(comm)
     elif args.run_mode == 2:
-        my_tasks = [0]
+        my_tasks = [37]
     
     # save the different parts separately
     for task in my_tasks:

@@ -3,7 +3,7 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description='Collect galaxy catalogues for yaw.')
-parser.add_argument('-sub', type=str, default="sub_gal", help='What to submit. Valid arguements: sub_gal, sub_lya_raw, sub_lya_true_cont, sub_lya_uncontaminated, sub_lya_baseline (depricated), sub_lya_LyCAN_noSNRc, sub_lya_LyCAN_SNRc, sub_yaw_raw, sub_yaw_true_cont, sub_yaw_uncontaminated, sub_yaw_baseline (depricated), sub_yaw_LyCAN_noSNRc, sub_yaw_LyCAN_SNRc')
+parser.add_argument('-sub', type=str, default="sub_lya_raw", help='What to submit. Valid arguements: sub_lya_raw, sub_lya_true_cont, sub_lya_uncontaminated, sub_lya_baseline (depricated), sub_lya_LyCAN_noSNRc, sub_lya_LyCAN_SNRc, sub_yaw_raw, sub_yaw_true_cont, sub_yaw_uncontaminated, sub_yaw_baseline (depricated), sub_yaw_LyCAN_noSNRc, sub_yaw_LyCAN_SNRc')
 args = parser.parse_args()
 
 def write_sbatch(sbatchfile,comm,time='00:15:00',nodes=1,ntasks=1,
@@ -38,33 +38,17 @@ def write_sbatch(sbatchfile,comm,time='00:15:00',nodes=1,ntasks=1,
     return 0
 
 
-# submit galaxy catalogue:
-if args.sub == "sub_gal":
-    sbatchfile = "submit_make_gal_catalogue.sbatch"
-    time='00:15:00'
-    nodes=1
-    ntasks=32
-    job_name="lya"
-    env="pymaster"
-    
-    for ii in range(2,10):
-        comm=f'srun -n 32 python make_gal_catalogue.py -sim_num {ii} -source 2 -zcut 1.8 3.0 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
-        output=f"lya-make-gal-{ii}.out"
-        print('Running: ',comm)
-        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
-                    run=1)
-
 # submit raw lya catalogue:
 if args.sub == "sub_lya_raw":
     sbatchfile = "submit_make_lya_catalogue-raw.sbatch"
-    time='01:00:00'
+    time='00:40:00'
     nodes=1
     ntasks=64
     job_name="lya"
     env="pymaster"
     
-    for ii in range(1,10):
-        comm=f'srun -n 64 python make_lya_catalogue-raw.py -sim_num {ii} -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 > deltaf-raw-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'srun -n 64 python make_lya_catalogue-raw.py -sim_num {ii} -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 -cat_tag 20bin > deltaf-raw-{ii}.log \n\n'
         output=f"deltaf-raw-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -78,8 +62,8 @@ if args.sub == "sub_lya_true_cont":
     job_name="lya"
     env="pymaster"
     
-    for ii in range(1,10):
-        comm=f'srun -n 16 python make_lya_catalogue.py -sim_num {ii} -sim_mode 1 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 16 -run_mode 0 > deltaf-true_cont-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'srun -n 16 python make_lya_catalogue.py -sim_num {ii} -sim_mode 1 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 16 -run_mode 0 -cat_tag 20bin > deltaf-true_cont-{ii}.log \n\n'
         output=f"deltaf-true_cont-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -93,13 +77,13 @@ if args.sub == "sub_lya_uncontaminated":
     job_name="lya"
     env="pymaster"
     
-    for ii in range(1,10):
-        comm=f'srun -n 16 python make_lya_catalogue.py -sim_num {ii} -sim_mode 2 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 16 -run_mode 0 > deltaf-uncontaminated-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'srun -n 16 python make_lya_catalogue.py -sim_num {ii} -sim_mode 2 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 16 -run_mode 0 -cat_tag 20bin > deltaf-uncontaminated-{ii}.log \n\n'
         output=f"deltaf-uncontaminated-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
-
+"""
 if args.sub == "sub_lya_baseline":
     sbatchfile = "submit_make_lya_catalogue-baseline.sbatch"
     time='00:30:00'
@@ -114,6 +98,7 @@ if args.sub == "sub_lya_baseline":
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
+"""
 
 if args.sub == "sub_lya_LyCAN_noSNRc":
     sbatchfile = "submit_make_lya_catalogue-LyCAN_noSNRc.sbatch"
@@ -123,8 +108,8 @@ if args.sub == "sub_lya_LyCAN_noSNRc":
     job_name="lya"
     env="pymaster"
     
-    for ii in range(1,10):
-        comm=f'srun -n 64 python make_lya_catalogue-LyCAN.py -sim_num {ii} -SNRcut 0 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 > deltaf-LyCAN_noSNRc-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'srun -n 64 python make_lya_catalogue-LyCAN.py -sim_num {ii} -SNRcut 0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 -cat_tag 20bin > deltaf-LyCAN_noSNRc-{ii}.log \n\n'
         output=f"deltaf-LyCAN_noSNRc-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -133,14 +118,14 @@ if args.sub == "sub_lya_LyCAN_noSNRc":
 
 if args.sub == "sub_lya_LyCAN_SNRc":
     sbatchfile = "submit_make_lya_catalogue-LyCAN_SNRc.sbatch"
-    time='01:00:00'
+    time='00:30:00'
     nodes=1
     ntasks=64
     job_name="lya"
     env="pymaster"
     
     for ii in range(1):
-        comm=f'srun -n 64 python make_lya_catalogue-LyCAN.py -sim_num {ii} -SNRcut 1 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 > deltaf-LyCAN_SNRc-{ii}.log \n\n'
+        comm=f'srun -n 64 python make_lya_catalogue-LyCAN.py -sim_num {ii} -SNRcut 1 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 -cat_tag 20bin > deltaf-LyCAN_SNRc-{ii}.log \n\n'
         output=f"deltaf-LyCAN_SNRc-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -151,15 +136,15 @@ if args.sub == "sub_lya_LyCAN_SNRc":
 
 # submit cross-correlation - raw
 if args.sub == "sub_yaw_raw":
-    sbatchfile = "submit_measure_yaw.sbatch"
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
     time='00:30:00'
     nodes=1
     ntasks=16
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(1,10):
-        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 0 -source 2 -deltaf_weight 1 -unk_zcut 1.8 3.0 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 > lya-yaw-raw-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 0 -source 2 -deltaf_weight 1 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -ref_tag 20bin -yaw_tag 20bin > lya-yaw-raw-{ii}.log \n\n'
         output=f"lya-yaw-raw-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -167,15 +152,15 @@ if args.sub == "sub_yaw_raw":
 
 # submit cross-correlation - true_cont
 if args.sub == "sub_yaw_true_cont":
-    sbatchfile = "submit_measure_yaw.sbatch"
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
     time='00:30:00'
     nodes=1
     ntasks=16
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(1,10):
-        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 1 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 > lya-yaw-true_cont-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 1 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -ref_tag 20bin -yaw_tag 20bin > lya-yaw-true_cont-{ii}.log \n\n'
         output=f"lya-yaw-true_cont-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -183,24 +168,24 @@ if args.sub == "sub_yaw_true_cont":
 
 # submit cross-correlation - uncontaminated
 if args.sub == "sub_yaw_uncontaminated":
-    sbatchfile = "submit_measure_yaw.sbatch"
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
     time='00:30:00'
     nodes=1
     ntasks=16
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(1,10):
-        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 2 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 > lya-yaw-uncontaminated-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 2 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -ref_tag 20bin -yaw_tag 20bin > lya-yaw-uncontaminated-{ii}.log \n\n'
         output=f"lya-yaw-uncontaminated-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
-        
+"""     
 # submit cross-correlation - baseline
 if args.sub == "sub_yaw_baseline":
     print("Depricated")
-    sbatchfile = "submit_measure_yaw.sbatch"
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
     time='00:30:00'
     nodes=1
     ntasks=16
@@ -213,18 +198,18 @@ if args.sub == "sub_yaw_baseline":
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=0)
-
+"""
 # submit cross-correlation - noSNRcut
 if args.sub == "sub_yaw_LyCAN_noSNRc":
-    sbatchfile = "submit_measure_yaw.sbatch"
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
     time='00:30:00'
     nodes=1
     ntasks=16
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(1,10):
-        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 4 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 > lya-yaw-LyCAN_noSNRc-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 4 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -ref_tag 20bin -yaw_tag 20bin > lya-yaw-LyCAN_noSNRc-{ii}.log \n\n'
         output=f"lya-yaw-LyCAN_noSNRc-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
@@ -232,7 +217,7 @@ if args.sub == "sub_yaw_LyCAN_noSNRc":
 
 # submit cross-correlation - SNRcut
 if args.sub == "sub_yaw_LyCAN_SNRc":
-    sbatchfile = "submit_measure_yaw.sbatch"
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
     time='00:30:00'
     nodes=1
     ntasks=16

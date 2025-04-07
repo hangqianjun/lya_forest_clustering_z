@@ -14,35 +14,31 @@ from astropy.io import fits
 import argparse
 import healpy
 #from pixell import utils
-
+import lya_utils as lu
 
 parser = argparse.ArgumentParser(description='Compute stacked kappa profile for Dirac mocks.')
-parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask. If empty, will generate full sky random.')
-parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
-parser.add_argument('-Nrandom', type=float, default=0, help="How many randoms to produce.")
+parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask. If empty, will generate a cut-out defined by ralim, declim.')
+parser.add_argument('-outroot', type=str, default="/pscratch/sd/q/qhang/desi-lya/", help='Where to save the catalogues.')
+parser.add_argument('-Nrandom', type=float, default=1.7e8, help="How many randoms to produce.")
 parser.add_argument('-ralim', nargs='+', default=[0, 360], help="RA limit in degrees to generate randoms.")
-parser.add_argument('-declim', nargs='+', default=[-90, 90], help="DEC limit in degrees to generate randoms.")
+parser.add_argument('-declim', nargs='+', default=[-25, 20], help="DEC limit in degrees to generate randoms.")
+parser.add_argument('-zdist', nargs='+', default=["zmin-1.8", "zmin-1.8-low", "zmin-1.8-mid", "srd"], help="file characterising redshift distribution, to assign random redshifts. If empty, will not assign redshifts.")
 args = parser.parse_args()
 
-# functions
-def save_catalog_to_fits(fname, data_matrix):
-    c=[]
-    dtype_to_fits_type = {'int64': 'K',
-                          'float64': 'D',
-                          'float32': 'E',
-                          '<U6': '20A',
-                          'bool': 'bool',
-                          '>f8': 'D',
-                          '>f4': 'E',
-                         }
-    
-    for ii, keys in enumerate(data_matrix.keys()):
-        col=fits.Column(name=keys, array=data_matrix[keys],
-                        format=dtype_to_fits_type[str(data_matrix[keys].dtype)])
-        c.append(col)
-    t = fits.BinTableHDU.from_columns(c)
-    t.writeto(fname)
 
+zdist_file_dict={
+    "zmin-1.8": "/pscratch/sd/q/qhang/desi-lya/nz-gal-z1.8-3.0-all-boxes.txt", 
+    "zmin-1.8-low": "/pscratch/sd/q/qhang/desi-lya/nz-gal-low-z1.8-3.0-box-0.txt", 
+    "zmin-1.8-mid": "/pscratch/sd/q/qhang/desi-lya/nz-gal-mid-z1.8-3.0-box-0.txt", 
+    "srd": "/pscratch/sd/q/qhang/desi-lya/nz-gal-SRD_nz-z0-3-box-0.txt",
+}
+
+zdist_tag_dict={
+    "zmin-1.8": "Z", 
+    "zmin-1.8-low": "Z_LOW", 
+    "zmin-1.8-mid": "Z_MID", 
+    "srd": "Z_SRD",
+}
 
 # load things, set up directories:
 if args.mask != "":
@@ -50,55 +46,86 @@ if args.mask != "":
     nside=hp.get_nside(mask)
     npix = int(12*nside**2)
     usepix = np.arange(npix)[mask==1]
-
-    # generate a bigger random sample:
-    # make random catalogue
-    ra_min = (args.ralim[0] - 1)/180.*np.pi
-    ra_max = (args.ralim[1] + 1)/180.*np.pi
-    dec_min = (args.declim[0] - 1)/180.*np.pi
-    dec_max = (args.declim[1] - 1)/180.*np.pi
-    print('ra range = %f .. %f' % (ra_min, ra_max))
-    print('dec range = %f .. %f' % (dec_min, dec_max))
-
 else:
     mask = None
-    ra_min = 0
-    ra_max = 360
-    dec_min = -90
-    dec_max = 90
-    print("Generating random for the full sky.")
+
+# generate a bigger random sample:
+# make random catalogue
+ra_min = (args.ralim[0])/180.*np.pi
+ra_max = (args.ralim[1])/180.*np.pi
+dec_min = (args.declim[0])/180.*np.pi
+dec_max = (args.declim[1])/180.*np.pi
+print('ra range = %f .. %f' % (ra_min, ra_max))
+print('dec range = %f .. %f' % (dec_min, dec_max))
 
 # compute random samples needed:
-if mask != None:
-    area_lim = (np.cos(dec_min + np.pi/2) - np.cos(dec_max + np.pi/2)) * (ra_max - ra_min)
-    area_mask = np.mean(mask)/np.pi/4.
+if args.mask != "":
+    area_lim = -(np.cos(dec_max + np.pi/2.) - np.cos(dec_min + np.pi/2.)) * (ra_max - ra_min)
+    area_mask = np.mean(mask)*(np.pi*4)
     N_to_generate = args.Nrandom * area_lim / area_mask
 else:
     N_to_generate = args.Nrandom
+N_to_generate = int(N_to_generate)
 
-tmp_ra = np.random.uniform(ra_min, ra_max, N_to_generate)
-tmp_sindec = np.random.uniform(np.sin(dec_min), np.sin(dec_max), N_to_generate)
-tmp_dec = np.arcsin(tmp_sindec)
+print("N random: ", N_to_generate)
 
-# select inside the pixel:
-if mask != None: 
-    pix = hp.ang2pix(nside,
-                     np.radians(90 - tmp_dec*180/np.pi),
-                     np.radians(tmp_ra*180/np.pi))
-    sel = np.in1d(pix, sepix)
+if len(args.zdist) != 0:
+     # only limit to z = [2,3] for cross-correlation bins
+    # grab the files:
+    Z_holder = {}
+    zdist = []
+    for ii, zd in enumerate(args.zdist):
+        fin = np.loadtxt(zdist_file_dict[zd])
+        # normalize zdist to probability:
+        zdist.append(np.c_[fin[:,0], fin[:,1]/sum(fin[:,1])])
+        Z_holder[zdist_tag_dict[zd]]=np.array([])
 
-    rand_ra = tmp_ra[sel]*180/np.pi
-    rand_dec = tmp_dec[sel]*180/np.pi
-else:
-    rand_ra = tmp_ra*180/np.pi
-    rand_dec = tmp_dec*180/np.pi
+print("Will generate these redshifts: ", list(Z_holder.keys()))
 
-print("Number of randoms generated: ", len(rand_ra))
+# split into chunks:
+nchunk = 5
+N_per_chunk = int(N_to_generate/nchunk)
 
-# save the catalogue:
+RA = np.array([])
+DEC = np.array([])
+
+for ii in range(nchunk):
+    
+    tmp_ra = np.random.uniform(ra_min, ra_max, N_per_chunk)
+    tmp_sindec = np.random.uniform(np.sin(dec_min), np.sin(dec_max), N_per_chunk)
+    tmp_dec = np.arcsin(tmp_sindec)
+
+    # select inside the pixel:
+    if args.mask != "":
+        pix = hp.ang2pix(nside,
+                         np.radians(90 - tmp_dec*180/np.pi),
+                         np.radians(tmp_ra*180/np.pi))
+        sel = np.isin(pix, usepix)
+    
+        rand_ra = tmp_ra[sel]*180/np.pi
+        rand_dec = tmp_dec[sel]*180/np.pi
+    else:
+        rand_ra = tmp_ra*180/np.pi
+        rand_dec = tmp_dec*180/np.pi
+
+    RA = np.append(RA, rand_ra)
+    DEC = np.append(DEC, rand_dec)
+
+    if len(args.zdist) != 0:
+        for ii, zd in enumerate(args.zdist):
+            rand_z = np.random.choice(zdist[ii][:,0], size=len(rand_ra), replace=True, p=zdist[ii][:,1])
+            Z_holder[zdist_tag_dict[zd]]=np.append(Z_holder[zdist_tag_dict[zd]],rand_z)
+
+print("Number of randoms generated: ", len(RA))
+
 data_holder = {
-    'RA': rand_ra,
-    'DEC': rand_dec,
+    'RA': RA,
+    'DEC': DEC,
 }
-fname = args.outroot + "randoms.fits"
-save_catalog_to_fits(fname, data_holder)
+
+if len(args.zdist) != 0:
+    for zd in args.zdist:
+        data_holder[zdist_tag_dict[zd]] = Z_holder[zdist_tag_dict[zd]]
+        
+fname = args.outroot + "random-catalogue-overlap-w-z.fits"
+lu.save_catalog_to_fits(fname, data_holder)

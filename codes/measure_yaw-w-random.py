@@ -9,6 +9,7 @@ import shutil
 import yaw
 from yaw.utils import parallel
 from yaw.correlation import autocorrelate_scalar, crosscorrelate_scalar
+from yaw import autocorrelate
 # but need to add it in the __init__
 import argparse
 
@@ -18,10 +19,15 @@ parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in,
 parser.add_argument('-sim_mode', type=int, default=0, help='0=raw, 1=true continuum deltas, 2=uncontaminated mocks (baseline)')
 parser.add_argument('-source', type=int, default=2, help='1=QSO; 2=galaxies')
 parser.add_argument('-deltaf_weight', type=int, default=2, help='0=no weight (uniform weight), 1=NPIX, 2=TOTWEIGHTS')
-parser.add_argument('-zcut', nargs='+', default=[1.8,3.0], help='Cuts in redshift. Provide bin edges')
-parser.add_argument('-zbins_file', type=str, default="/pscratch/sd/q/qhang/desi-lya/delta_F/zbins.txt", help='Redshift bin edges file, if provided will overwrite zbins.')
+parser.add_argument('-unk_zcut', nargs='+', default=[1.8,3.0], help='Redshift cuts in the unknown sample redshift.')
+parser.add_argument('-zbins', nargs='+', default=[2,3,40], help='Zmin, Zmax, Nbin')
+parser.add_argument('-zbins_file', type=str, default="", help='Redshift bin edges file, if provided will overwrite zbins. It is encouraged to use this option for reproducibility.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
 parser.add_argument('-plot', type=int, default=0, help='0=no plot, 1=produce and save a plot for the results, 2=skip correlation, just plot.')
+parser.add_argument('-run_unknown_corr', type=int, default=0, help='Notice this only needs to be run once for all delta_f modes. 0=automode, searches for the w_pp file in the results directory; if not found, will run unknown auto-correlation; 1=run and overwrite the existing file if any.')
+parser.add_argument('-ref_tag', type=str, default="", help="tag for the ref folders; valid tags: None, 20bin")
+parser.add_argument('-unk_tag', type=str, default="", help="tag for the unk folders (same tag is used for randoms zcolumn); valid tags: None, low, mid, SRD_nz.")
+parser.add_argument('-yaw_tag', type=str, default="", help="tag for naming the yaw folders; used for different yaw settings such as number of redshift bins. Default is given by the default arguments above.")
 args = parser.parse_args()
 
 def delete_and_recreate_cache_directory(cache_dir):
@@ -30,42 +36,10 @@ def delete_and_recreate_cache_directory(cache_dir):
             shutil.rmtree(cache_dir)
         os.mkdir(cache_dir)
 
-#set_params=3
-"""
-if set_params==0:
-    njn=64
-    theta_min=1
-    theta_max=20
-    theta_scaled=None
-    resolution=None
-    unit='arcmin'
-    folder = "test-njn-64-noscale-1-20-arcm/"
-    
-
-elif set_params==1:
-    njn=128
-    theta_min=1
-    theta_max=20
-    theta_scaled=None
-    resolution=None
-    unit='arcmin'
-    folder = "test-njn-128-noscale-1-20-arcm/"
-    
-        
-elif set_params==2:
-    njn=64
-    theta_min=1
-    theta_max=20
-    theta_scaled=-1.0
-    resolution=10
-    unit='arcmin'
-    folder = "test-njn-128-noscale-1-20-arcm/"
-"""
-
-#elif set_params==3:
 njn=64
-theta_min=1
-theta_max=10
+# here can test a range of scales
+theta_min=[5,10,15]
+theta_max=[15,30,50]
 theta_scaled=None
 resolution=None
 unit='arcmin'
@@ -79,9 +53,9 @@ elif args.sim_mode == 2:
 elif args.sim_mode == 3:
     sim_mode_tag = "baseline"
 elif args.sim_mode == 4:
-    sim_mode_tag = "LyCAN_noSNRc"
+    sim_mode_tag = "LyCAN_noSNRcut"
 elif args.sim_mode == 5:
-    sim_mode_tag = "LyCAN_SNRc"
+    sim_mode_tag = "LyCAN_SNRcut"
 
 if args.source == 1:
     type_tag = "QSO"
@@ -89,26 +63,62 @@ elif args.source == 2:
     type_tag = "unknown"
 
 if args.deltaf_weight == 0:
+    ref_name = 'DELTA_F'
     ref_weight_name = None
 elif args.deltaf_weight == 1:
+    ref_name = 'DELTA_F'
     ref_weight_name = 'NPIX'
 elif args.deltaf_weight == 2:
-    ref_weight_name = 'TOTWIEGHTS'
-    
-zbins = args.zcut
+    ref_name = 'DELTA_F_WEIGHTED'
+    ref_weight_name = 'TOTWEIGHTS'
+
+
+# make a z_column dictionary for unk_tag:
+rand_z_dict={
+    "low": "Z_LOW",
+    "mid": "Z_MID",
+    "SRD_nz": "Z_SRD", # this one zlim has to be [0, 3]
+}
+
+# Update all tags
+if args.unk_tag == "":
+    unk_tag = args.unk_tag 
+    rand_z_name = "Z"
+else:
+    unk_tag = "-" + args.unk_tag
+    rand_z_name =rand_z_dict[args.unk_tag]
+
+if args.ref_tag == "":
+    ref_tag = args.ref_tag 
+else:
+    ref_tag = "-" + args.ref_tag 
+
+if args.yaw_tag == "":
+    yaw_tag = args.yaw_tag
+else:
+    yaw_tag = "-" + args.yaw_tag
+
 
 saveroot = args.outroot + f"run-{args.sim_num}/"
 
-path_unknown = saveroot + f"catalogue/{type_tag}-zmin-{zbins[0]}-zmax-{zbins[1]}.fits"
-path_reference = saveroot + f"catalogue/delta-{sim_mode_tag}.fits"
-path_unk_rand = "/pscratch/sd/q/qhang/desi-lya/random-catalogue-overlap-zmin-1.8.fits"
+path_unknown = saveroot + f"catalogue/{type_tag}{unk_tag}-zmin-{args.unk_zcut[0]}-zmax-{args.unk_zcut[1]}.fits"
+path_reference = saveroot + f"catalogue{ref_tag}/delta-{sim_mode_tag}.fits"
+path_unk_rand = "/pscratch/sd/q/qhang/desi-lya/random-catalogue-overlap-w-z.fits"
 
-zsampf = np.loadtxt(args.zbins_file)
-edges = zsampf[:,0]
-zsamp = zsampf[:-1,1]
+print("Unknown: ", path_unknown)
+print("Reference: ", path_reference)
+print("Random: ", path_unk_rand)
+
+
+if args.zbins_file != "":
+    zsampf = np.loadtxt(args.zbins_file)
+    edges = zsampf[:,0]
+    zsamp = zsampf[:-1,1]
+else:
+    edges = np.linspace(float(args.zbins[0]), float(args.zbins[1]), int(args.zbins[2])+1)
+    zsamp = (edges[1:] + edges[:-1])/2.
 
 if args.plot != 2:
-
     # turn on logging to terminal (can change level to "info" or remove this line entirely)
     #get_logger(level="info", pretty=True, capture_warnings=True)
     PROGRESS = True  # if you want to see a progress bar
@@ -125,7 +135,9 @@ if args.plot != 2:
     )
     
     # LOADING CATALOGS
-    CACHE_DIR = saveroot + f"yaw/cache_{sim_mode_tag}/"
+    CACHE_DIR = saveroot + f"yaw{yaw_tag}/cache_{sim_mode_tag}/"
+    print("cache: ", CACHE_DIR)
+    
     delete_and_recreate_cache_directory(CACHE_DIR)
     
     # set up the catalogues:
@@ -134,6 +146,7 @@ if args.plot != 2:
         path=path_unknown,
         ra_name="RA",
         dec_name="DEC",
+        redshift_name="Z",
         #weight_name="weight_column",  # optional
         patch_num=patch_num,
         progress=PROGRESS,
@@ -149,7 +162,7 @@ if args.plot != 2:
         dec_name="DEC",
         redshift_name="Z",
         weight_name=ref_weight_name,
-        kappa_name="DELTA_F",
+        kappa_name=ref_name,
         patch_centers=patch_centers,
         progress=PROGRESS,
         degrees=True,
@@ -161,20 +174,30 @@ if args.plot != 2:
         path=path_unk_rand,
         ra_name="RA",
         dec_name="DEC",
+        redshift_name=rand_z_name,
         patch_centers=patch_centers,
         progress=PROGRESS,
         degrees=True,
     )
+
+    print("Done loading catalogues")
     
     # measurements:
+
+    print("Computing w_ss")
     w_ss= autocorrelate_scalar(
         config,
         cat_reference,
         progress=PROGRESS
     ) # returns a list, one for each scale, just pick the first here
     #   w_ss.to_file("...") -> store correlation pair counts as HDF5 file
+
+    # save files
+    for ii in range(len(theta_min)):
+        cts_ss = w_ss[ii]
+        cts_ss.to_file(saveroot + f"yaw{yaw_tag}/w_ss-{sim_mode_tag}-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.hdf5")
     
-    
+    print("Computing w_sp")
     w_sp = crosscorrelate_scalar(
         config,
         cat_reference,
@@ -183,22 +206,79 @@ if args.plot != 2:
         progress=PROGRESS
     ) # returns a list, one for each scale, just pick the first here
     #   w_sp.to_file("...") -> store correlation pair counts as HDF5 file
+
+    # save them (if different scales, need to save each file!):
+    for ii in range(len(theta_min)):
+        cts_sp = w_sp[ii]
+        cts_sp.to_file(saveroot + f"yaw{yaw_tag}/w_sp-{sim_mode_tag}-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.hdf5")
+    """
+    w_ss = []
+    w_sp = []
+    for ii in range(len(theta_min)):
+        fname = saveroot + f"yaw{yaw_tag}/w_ss-{sim_mode_tag}-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.hdf5"
+        w_ss.append(yaw.ScalarCorrFunc.from_file(fname))
+
+        fname = saveroot + f"yaw{yaw_tag}/w_sp-{sim_mode_tag}-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.hdf5"
+        w_sp.append(yaw.ScalarCorrFunc.from_file(fname))
+    """
     
-    # save them:
-    cts_ss = w_ss[0]
-    cts_ss.to_file(saveroot + f"yaw/w_ss-{sim_mode_tag}.hdf5")
-    
-    cts_sp = w_sp[0]
-    cts_sp.to_file(saveroot + f"yaw/w_sp-{sim_mode_tag}.hdf5")
-    # restored = yaw.CorrFunc.from_file("w_sp.hdf5")
+    wppfname = saveroot + f"yaw{yaw_tag}/w_pp-theta-min-{theta_min[0]}-max-{theta_max[0]}.hdf5"
+    if os.path.isfile(wppfname)!=True:
+        print("Computing w_pp")
+        # also run unknown case:
+        w_pp = autocorrelate(
+            config,
+            cat_unknown,
+            random=cat_unk_rand,
+            progress=PROGRESS
+        )
+        for ii in range(len(theta_min)):
+            cts_pp = w_pp[ii]
+            cts_pp.to_file(saveroot + f"yaw{yaw_tag}/w_pp-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.hdf5")
+    else:
+        w_pp=[]
+        for ii in range(len(theta_min)):
+            fname = saveroot + f"yaw{yaw_tag}/w_pp-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.hdf5"
+            w_pp.append(yaw.CorrFunc.from_file(fname))
     
     # COMPUTE REDSHIFTS
-    ncc = yaw.RedshiftData.from_corrfuncs(cross_corr=w_sp[0], ref_corr=w_ss[0])  # unk_corr=w_pp
-    ncc.to_files(saveroot + f"yaw/nz_estimate-{sim_mode_tag}")  # store as ASCII files with extensions .dat, .smp and .cov
+    print("Computing n(z)...")
+    for ii in range(len(theta_min)):
+        
+        cts_sp = w_sp[ii]
+        cts_ss = w_ss[ii]
+        cts_pp = w_pp[ii]
+    
+        zz = cts_sp.binning.mids
+        sp = cts_sp.sample().data
+        ss = cts_ss.sample().data
+        pp = cts_pp.sample().data
+
+        deltaz = zz[1]-zz[0]
+
+        fname = saveroot + f"yaw{yaw_tag}/nz_estimate-{sim_mode_tag}-wpp-theta-min-{theta_min[ii]}-max-{theta_max[ii]}" # .dat, .smp, .cov
+        
+        # get errorbar:
+        samps = cts_sp.sample().samples/np.sqrt((cts_ss.sample().samples)*(cts_pp.sample().samples))/deltaz
+        np.savetxt(fname+".smp", np.c_[zz, samps.T])
+        
+        cov = np.cov(samps.T)*njn
+        np.savetxt(fname+".cov", cov)
+        
+        std = np.sqrt(np.diag(cov))
+        out=np.c_[zz, -sp/np.sqrt(ss*pp)/deltaz,std]
+        np.savetxt(fname+".dat", out)
+        
+        # does not include pp
+        ncc = yaw.RedshiftData.from_corrfuncs(cross_corr=cts_sp, ref_corr=cts_ss, unk_corr=None)
+        ncc.to_files(saveroot + f"yaw{yaw_tag}/nz_estimate-{sim_mode_tag}-theta-min-{theta_min[ii]}-max-{theta_max[ii]}")  # store as ASCII files with extensions .dat, .smp and .cov
+
 
 if args.plot != 0: 
 
     # load results:
+
+    # produce a plot for each scale 
     from yaw.correlation.corrfunc import ScalarCorrFunc
     
     w_sp = ScalarCorrFunc.from_file(saveroot + f"yaw/w_sp-{sim_mode_tag}.hdf5")
