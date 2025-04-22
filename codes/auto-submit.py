@@ -38,7 +38,8 @@ def write_sbatch(sbatchfile,comm,time='00:15:00',nodes=1,ntasks=1,
     return 0
 
 
-# submit galaxy catalogue:
+# +++++ submit galaxy catalogue +++++:
+# z>1.8
 if args.sub == "sub_gal":
     sbatchfile = "submit_make_gal_catalogue.sbatch"
     time='00:15:00'
@@ -47,13 +48,31 @@ if args.sub == "sub_gal":
     job_name="lya"
     env="pymaster"
     
-    for ii in range(2,10):
+    for ii in range(10):
         comm=f'srun -n 32 python make_gal_catalogue.py -sim_num {ii} -source 2 -zcut 1.8 3.0 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
         output=f"lya-make-gal-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
 
+# SRD
+if args.sub == "sub_gal_srd":
+    sbatchfile = "submit_make_gal_catalogue.sbatch"
+    time='00:15:00'
+    nodes=1
+    ntasks=32
+    job_name="lya"
+    env="pymaster"
+    
+    for ii in range(1,10):
+        comm=f'srun -n 32 python make_gal_catalogue.py -sim_num {ii} -source 2 -zcut 0 3 -target_nz SRD -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
+        output=f"lya-make-gal-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=1)
+# +++++ +++++
+
+        
 # submit raw lya catalogue:
 if args.sub == "sub_lya_raw":
     sbatchfile = "submit_make_lya_catalogue-raw.sbatch"
@@ -230,6 +249,7 @@ if args.sub == "sub_yaw_LyCAN_noSNRc":
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
 
+"""
 # submit cross-correlation - SNRcut
 if args.sub == "sub_yaw_LyCAN_SNRc":
     sbatchfile = "submit_measure_yaw.sbatch"
@@ -245,3 +265,23 @@ if args.sub == "sub_yaw_LyCAN_SNRc":
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
+"""
+
+# ++++++ --- YAW SRD --- ++++++
+
+# submit cross-correlation - noSNRcut
+if args.sub == "sub_yaw_LyCAN_noSNRc_srd":
+    sbatchfile = "submit_measure_yaw.sbatch"
+    time='00:30:00'
+    nodes=1
+    ntasks=16
+    job_name="lya"
+    env="yaw_env"
+    
+    for ii in range(1,10):
+        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 4 -source 2 -deltaf_weight 2 -unk_zcut 0 3 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -unk_tag SRD_nz -yaw_tag SRD_nz > lya-yaw-LyCAN_noSNRc-{ii}.log \n\n'
+        output=f"lya-yaw-LyCAN_noSNRc-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=1)
+

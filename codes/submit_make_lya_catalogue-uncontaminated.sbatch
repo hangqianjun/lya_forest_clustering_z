@@ -6,12 +6,12 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=16
 #SBATCH --job-name=lya
-#SBATCH -o deltaf-uncontaminated-0.out
+#SBATCH -o deltaf-uncontaminated-9.out
 
 echo 'This job started on: ' `date`
 
 conda activate pymaster
 
-srun -n 16 python make_lya_catalogue.py -sim_num 0 -sim_mode 2 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 16 -run_mode 0 -cat_tag 20bin > deltaf-uncontaminated-0.log 
+srun -n 16 python make_lya_catalogue.py -sim_mode 2 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 16 -run_mode 1 -cat_tag 20bin -sim_num 1 > deltaf-uncontaminated-9.log 
 
 echo 'This job ended on: ' `date`
