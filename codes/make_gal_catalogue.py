@@ -28,7 +28,7 @@ parser.add_argument('-target_nz', type=str, default="", help='Directory to targe
 parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
 parser.add_argument('-nchunks', type=int, default=1, help='How many chunks to split the data')
-parser.add_argument('-run_mode', type=int, default=2, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.')  
+parser.add_argument('-run_mode', type=int, default=2, help='0=run chunks, 1=process chunks, 2=debug, runs 0 with 1 chunk.')
 args = parser.parse_args()
 
 print("Initializing...")
@@ -103,6 +103,7 @@ if args.run_mode == 0 or args.run_mode == 2:
         RA = np.array([])
         DEC = np.array([])
         Z = np.array([])
+        Z_raw = np.array([])
 
         files = fname_chunks[task]
         
@@ -116,6 +117,7 @@ if args.run_mode == 0 or args.run_mode == 2:
             fname = simroot + f"out_srcs_s{args.source}_{mm}.fits"
             f=fits.open(fname)
             
+            redshift_raw = f[1].data['Z_COSMO']
             redshift = f[1].data['Z_COSMO'] + f[1].data['DZ_RSD']
             ra = f[1].data['RA']
             dec = f[1].data['DEC']
@@ -171,11 +173,13 @@ if args.run_mode == 0 or args.run_mode == 2:
             RA=np.append(RA, ra[sel])
             DEC=np.append(DEC, dec[sel])
             Z=np.append(Z, redshift[sel])
+            Z_raw=np.append(Z_raw, redshift_raw[sel])
         
         data_holder = {
         'RA': RA,
         'DEC': DEC,
         'Z': Z,
+        'Z_COSMO': Z_raw,
         }
 
         nzout = np.c_[(cc[1][1:] + cc[1][:-1])*0.5, nz]
@@ -192,7 +196,7 @@ elif args.run_mode == 1:
     
     print("Combining chunks...")
     
-    keys = ['RA', 'DEC', 'Z']
+    keys = ['RA', 'DEC', 'Z', 'Z_COSMO']
     
     data_holder = {}
     for key in keys:

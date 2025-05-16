@@ -12,6 +12,6 @@ echo 'This job started on: ' `date`
 
 conda activate yaw_env
 
-python measure_yaw-w-random.py -sim_num 9 -sim_mode 4 -source 2 -deltaf_weight 2 -unk_zcut 0 3 -zbins 2 3 40 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -unk_tag SRD_nz -yaw_tag SRD_nz > lya-yaw-LyCAN_noSNRc-9.log 
+python measure_yaw-w-random.py -sim_num 9 -sim_mode 6 -source 2 -deltaf_weight 2 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -ref_tag 20bin -yaw_tag 20bin > lya-yaw-LyCAN_noSNRc-9.log 
 
 echo 'This job ended on: ' `date`

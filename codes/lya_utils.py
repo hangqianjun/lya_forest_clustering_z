@@ -6,6 +6,8 @@ from astropy.io import fits
 from scipy.integrate import simpson, cumulative_trapezoid
 from scipy.special import erf
 import healpy as hp
+import os
+import pickle
 
 
 def save_catalog_to_fits(fname, data_matrix, overwrite=True):
@@ -266,5 +268,17 @@ def match_srd_ngal_one_file(fin, Ngal, srd_ngal=5.4):
     frac = srd_ngal/ngal
     return ngal, frac
 
-    
-    
+
+def dump_save(stuff,filename):
+    '''This saves the dictionary and loads it from appropriate files'''
+    with open(filename,'wb') as fout:
+        pickle.dump(stuff,fout,pickle.HIGHEST_PROTOCOL)
+        #json.dump(self.impute, fout, sort_keys=True, indent=3)
+    print('written impute ditionary:',filename)
+    return 0
+def dump_load(filename):
+    with open(filename,'rb') as fin:
+        stuff=pickle.load(fin, encoding='latin1')
+        #self.impute = json.load(fin)
+    #print('loaded impute ditionary:',filename)
+    return stuff

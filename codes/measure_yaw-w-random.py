@@ -16,7 +16,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Compute stacked kappa profile for Dirac mocks.')
 
 parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
-parser.add_argument('-sim_mode', type=int, default=0, help='0=raw, 1=true continuum deltas, 2=uncontaminated mocks (baseline)')
+parser.add_argument('-sim_mode', type=int, default=0, help='0=raw, 1=true continuum, 2=uncontaminated (picca), 3=baseline (depricated), 4=LyCAN_noSNRcut, 5=LyCAN_SNRcut (depricated), 6=LyCAN_cont_noSNRcut')
 parser.add_argument('-source', type=int, default=2, help='1=QSO; 2=galaxies')
 parser.add_argument('-deltaf_weight', type=int, default=2, help='0=no weight (uniform weight), 1=NPIX, 2=TOTWEIGHTS')
 parser.add_argument('-unk_zcut', nargs='+', default=[1.8,3.0], help='Redshift cuts in the unknown sample redshift.')
@@ -38,7 +38,7 @@ def delete_and_recreate_cache_directory(cache_dir):
 
 njn=64
 # here can test a range of scales
-theta_min=[5,10,15]
+theta_min=[5,10,15] # will last bin changed from 15 to 30
 theta_max=[15,30,50]
 theta_scaled=None
 resolution=None
@@ -56,6 +56,9 @@ elif args.sim_mode == 4:
     sim_mode_tag = "LyCAN_noSNRcut"
 elif args.sim_mode == 5:
     sim_mode_tag = "LyCAN_SNRcut"
+elif args.sim_mode == 6:
+    sim_mode_tag = "LyCAN_cont_noSNRcut"
+    # contaminated case
 
 if args.source == 1:
     type_tag = "QSO"

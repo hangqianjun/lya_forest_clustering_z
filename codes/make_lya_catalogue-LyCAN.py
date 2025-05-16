@@ -19,6 +19,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Compute stacked kappa profile for Dirac mocks.')
 parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
+parser.add_argument('-sim_mode_tag', type=str, default="LyCAN", help="LyCAN = uncontaminated, for type LyCAN_cont")
 parser.add_argument('-SNRcut', type=int, default=0, help='0=noSNRc, 1=SNRc')
 parser.add_argument('-zbins', nargs='+', default=[2,3,40], help='Zmin, Zmax, Nbin')
 parser.add_argument('-nchunks', type=int, default=1, help='How many chunks to split the data')
@@ -48,20 +49,26 @@ def save_catalog_to_fits(fname, data_matrix, overwrite=True):
     t = fits.BinTableHDU.from_columns(c)
     t.writeto(fname, overwrite=overwrite)
 
-sim_mode_tag = "LyCAN"
+#sim_mode_tag = "LyCAN"
+raw_sim_mode_tag = args.sim_mode_tag
 if args.SNRcut == 0:
     lycan_mode_tag = 'noSNRcut'
 elif args.SNRcut == 1:
     lycan_mode_tag = 'SNRcut'
 
-sim_mode_tag += ("_" + lycan_mode_tag)
+sim_mode_tag = raw_sim_mode_tag + "_" + lycan_mode_tag
 
 # read in redshift bin somewhere, or save it with the results;
 simroot = "/global/cfs/cdirs/desi/users/wmturner/photo-z/deltas/"
-simroot += f"mock-{args.sim_num}/{lycan_mode_tag}/Delta/"
+if raw_sim_mode_tag == "LyCAN":
+    simroot += f"mock-{args.sim_num}/jura-0/{lycan_mode_tag}/Delta/"
+elif raw_sim_mode_tag == "LyCAN_cont":
+    simroot += f"mock-{args.sim_num}/jura-124/{lycan_mode_tag}/Delta/"
+else:
+    print("sim_mode_tag not accepted.")
+    exit()
 
 #print(simroot)
-
 if args.cat_tag == "":
     saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
 else:
@@ -179,10 +186,12 @@ if args.run_mode == 0 or args.run_mode == 2:
                 lambda_obs_max=lambda_rf_max*(1+zqso)
                 in_forest=np.logical_and(wave > lambda_obs_min, wave < lambda_obs_max)
                 in_forest *= wave > dodgy_lowz_cut
+
+                sel2 = ~np.isnan(delta_l)
     
                 # now bin:
                 for kk in range(nbin):
-                    useind = (bin_tag == kk+1)*in_forest*sel1
+                    useind = (bin_tag == kk+1)*in_forest*sel1*sel2
                     
                     if len(objred[useind])>0:
                         num_pix = len(objred[useind])

@@ -99,6 +99,6 @@ for ii in range(Nsims):
             
         print(f"Total number of objects: {len(data_holder[key])}")
         # save    
-        savename = saveroot +  f"delta-{sim_mode_tag}.fits"
+        savename = saveroot +  f"delta-{sim_mode_tag}-{nbin}.fits"
         save_catalog_to_fits(savename, data_holder)
         print(f"saved: {savename}")
