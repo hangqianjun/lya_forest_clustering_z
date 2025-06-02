@@ -27,14 +27,16 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from IPython.display import display, Math
 
-#rsd_tag = "-norsd"
-#zkey = "Z_COSMO"
+rsd_tag = "-norsd"
+zkey = "Z_COSMO"
 
-rsd_tag = ""
-zkey = "Z"
+#rsd_tag = ""
+#zkey = "Z"
 
 # load the data photometric sample and the randoms:
-fin = fits.open('/pscratch/sd/q/qhang/desi-lya/results/run-0/catalogue/unknown-zmin-1.8-zmax-3.0.fits')
+#inroot = "/pscratch/sd/q/qhang/desi-lya/results/"
+inroot = "/pscratch/sd/q/qhang/desi-lya/results-newbias/"
+fin = fits.open(inroot + 'run-0/catalogue/unknown-zmin-1.8-zmax-3.0.fits')
 ra = fin[1].data['RA']
 dec = fin[1].data['DEC']
 z = fin[1].data[zkey]
@@ -201,16 +203,26 @@ def w_xx(sample_x, theta_range, z_range, Ntheta, Nz, Npatch, z_for_rand ,Eta_ran
         gc.collect()
     return(Wz,Err,Multi_cov)
 
-#Nz = 40
-Nz = 20
+Nz = 40
+#Nz = 20
 #Nz = 10
 theta_min = 10
 theta_max = 30
 ntheta = 10
 
-A0,B0,C0=w_xx(sample_x='photo', theta_range=[theta_min,theta_max], z_range=[2,3], Ntheta=ntheta, Nz=Nz, Npatch=64, z_for_rand=False ,Eta_rand=5)
+# note changed to avoid null bins:
+A0,B0,C0=w_xx(sample_x='photo', theta_range=[theta_min,theta_max], z_range=[2,2.975], Ntheta=ntheta, Nz=39, Npatch=64, z_for_rand=False ,Eta_rand=5)
+#A0,B0,C0=w_xx(sample_x='photo', theta_range=[theta_min,theta_max], z_range=[2,3], Ntheta=ntheta, Nz=Nz, Npatch=64, z_for_rand=False ,Eta_rand=5)
+
+for ii in range(Nz):
+    if ii == 0:
+        out = np.append(A0[ii], B0[ii])
+    elif ii == 39: # only for 40 bin no rsd case, comment out otherwise
+        out = np.c_[out, np.zeros(out.shape[0])]
+    else:
+        out = np.c_[out, np.append(A0[ii], B0[ii])]
 
 # save all of them:
 #filename = f"wpp{rsd_tag}-theta-{ntheta}bins-min-{theta_min}-max-{theta_max}-z-{Nz}bin.pkl"
-filename = f"wpp{rsd_tag}-thetacomb-alpha-min-{theta_min}-max-{theta_max}-z-{Nz}bin.pkl"
-lu.dump_save([A0,B0],filename)
+filename = inroot + f"run-0/for_william/wpp{rsd_tag}-thetacomb-alpha-min-{theta_min}-max-{theta_max}-z-{Nz}bin.txt"
+np.savetxt(filename,out)
