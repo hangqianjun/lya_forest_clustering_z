@@ -169,6 +169,22 @@ if args.sub == "sub_yaw_raw":
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
 
+# submit cross-correlation - raw - thetasplit
+if args.sub == "sub_yaw_raw_theta":
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
+    time='00:30:00'
+    nodes=1
+    ntasks=16
+    job_name="lya"
+    env="yaw_env"
+    
+    for ii in range(10):
+        comm=f'python measure_yaw-w-random-theta.py -sim_num {ii} -sim_mode 0 -source 2 -deltaf_weight 1 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -theta 1 50 15 -ref_tag 20bin -yaw_tag 20bin -combtheta 0 > lya-yaw-raw-thetasplit-{ii}.log \n\n'
+        output=f"lya-yaw-raw-thetasplit-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=1)
+
 # submit cross-correlation - true_cont
 if args.sub == "sub_yaw_true_cont":
     sbatchfile = "submit_measure_yaw-20bin.sbatch"
@@ -279,13 +295,28 @@ if args.sub == "sub_yaw_LyCAN_noSNRc_srd":
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(1,10):
-        comm=f'python measure_yaw-w-random.py -sim_num {ii} -sim_mode 4 -source 2 -deltaf_weight 2 -unk_zcut 0 3 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -plot 0 -unk_tag SRD_nz -ref_tag 20bin -yaw_tag 20bin-SRD_nz > lya-yaw-LyCAN_noSNRc-{ii}.log \n\n'
+    for ii in range(1):
+        comm=f'python measure_yaw-w-random-theta.py -sim_num {ii} -sim_mode 4 -source 2 -deltaf_weight 2 -unk_zcut 0 3 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -plot 0 -unk_tag SRD_nz -ref_tag 20bin -yaw_tag 20bin-SRD_nz > lya-yaw-LyCAN_noSNRc-{ii}.log \n\n'
         output=f"lya-yaw-LyCAN_noSNRc-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
-                    run=1)
+                    run=0)
 
+# submit cross-correlation - raw SRD - thetasplit
+if args.sub == "sub_yaw_raw_srd_theta":
+    sbatchfile = "submit_measure_yaw-20bin.sbatch"
+    time='00:30:00'
+    nodes=1
+    ntasks=16
+    job_name="lya"
+    env="yaw_env"
+    
+    for ii in range(10):
+        comm=f'python measure_yaw-w-random-theta.py -sim_num {ii} -sim_mode 0 -source 2 -deltaf_weight 1 -unk_zcut 0 3 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -theta 1 50 15 -unk_tag SRD_nz -ref_tag 20bin -yaw_tag 20bin-SRD_nz -combtheta 0 > lya-yaw-raw-thetasplit-{ii}.log \n\n'
+        output=f"lya-yaw-raw-thetasplit-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=1)
 
 
 # ++++++ --- YAW norand --- ++++++

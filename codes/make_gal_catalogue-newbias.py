@@ -25,7 +25,7 @@ parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in,
 #parser.add_argument('-sim_root', type=str, default="", help='If provided overwrites the sim_num, load sim from this directory. File structure has to be consistent.')
 parser.add_argument('-source', type=int, default=1, help='1=QSO; 2=galaxies')
 parser.add_argument('-zcut', nargs='+', default=[1.8,3], help='Cuts in redshift. Provide bin edges')
-parser.add_argument('-target_nz', type=str, default="", help='Directory to target the nz file. If provided, will try to match the n(z) distribution. Or, type SRD to automatically generate SRD redshifts for highest bin.')
+parser.add_argument('-target_nz', type=str, default="", help='Directory to target the nz file. If provided, will try to match the n(z) distribution. Or, type SRD to automatically generate SRD redshifts for highest bin. Type LBG to generate selection for LSST Y10 LBG.')
 #parser.add_argument('-match_srd_ngal', type=int, default=0, help='0=ignore, 1=match')
 parser.add_argument('-mask', type=str, default="/pscratch/sd/q/qhang/desi-lya/desixlsst-mask-nside-128.fits", help='Directory to survey mask.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
@@ -35,10 +35,8 @@ args = parser.parse_args()
 
 print("Initializing...")
 # load things, set up directories:
-if args.sim_num == 0:
-    simroot = "/global/cfs/cdirs/desicollab/users/lauracdp/photo-z_box/notebook/new_biasing_model/new_bias_model/box-0/results/"
-else:
-    eixt()
+simroot = f"/global/cfs/cdirs/desicollab/users/lauracdp/photo-z_box/notebook/new_biasing_model/new_bias_model/box-{args.sim_num}/results/"
+
 zbins = args.zcut
 saveroot = args.outroot + f"run-{args.sim_num}/catalogue/"
 
@@ -59,6 +57,11 @@ if args.target_nz != "":
         useind = redshift_range<3
         target_nz = np.c_[redshift_range[useind], source_nz[useind]]
         cat_tag = "-SRD_nz"
+        scale=8.8
+    elif args.target_nz == "LBG":
+        target_nz = np.loadtxt("/global/homes/q/qhang/desi/lya/notebooks/nz_lbg_lssty10.txt")
+        cat_tag = "-LBG_nz"
+        scale=None
     else:
         target_nz = np.loadtxt(args.target_nz)
         cat_tag = "-custom_nz"
@@ -132,7 +135,7 @@ if args.run_mode == 0 or args.run_mode == 2:
             # now also select using nz
             if args.target_nz != "":
                 # scale roughly gives SRD density
-                sel_nz = lu.downsamp_w_target_hist(redshift[sel], target_nz, seed=123, scale=8.8)[0]
+                sel_nz = lu.downsamp_w_target_hist(redshift[sel], target_nz, seed=123, scale=scale)[0]
                 # update sel:
                 sel = sel[sel_nz]
             

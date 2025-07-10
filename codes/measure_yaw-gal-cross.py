@@ -1,9 +1,6 @@
 """
-This is the special case for testing:
-e.g. - number of bins, scales
-This is running on one mock. 
-Code is meant to be flexible and easy to change, but not good reproducibility checks.
-If reasonable, implement into the main code as an option for reproducibility.
+Sanity checks:
+galaxy top-hat x galaxy overall.
 """
 import yaw
 import os
@@ -22,6 +19,12 @@ from yaw.correlation.corrfunc import ScalarCorrFunc
 
 import pandas as pd
 import lya_utils as lu
+import argparse
+
+parser = argparse.ArgumentParser(description='Gal cross')
+parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
+args = parser.parse_args()
+
 
 def delete_and_recreate_cache_directory(cache_dir):
     if parallel.on_root():  # if running with MPI, this is only executed on rank 0
@@ -44,6 +47,8 @@ for ii in range(len(theta_range)):
         theta_max.append(thetas[jj+1])
 #print("theta_min: ", theta_min)
 #print("theta_max: ", theta_max)
+#print(Ntheta)
+#exit()
 theta_scaled=None
 resolution=None
 unit='arcmin'
@@ -54,29 +59,30 @@ alpha=0
 # need to update with new bias, for now use old bias as the 
 # cross-correlation is off for new bias
 outroot = "/pscratch/sd/q/qhang/desi-lya/results-newbias/"
-sim_num = 0
+sim_num = args.sim_num
 type_tag = "unknown"
-unk_tag = ""
-unk_zcut=[1.8,3.0]
+unk_tag = "-SRD_nz"
+unk_zcut=[0,3]
 #ref_tag = ""
 ref_tag = f"-{Nbins}bin"
 sim_mode_tag = "raw"
 cache_tag = ""
-yaw_tag = f"-{Nbins}bin"
+yaw_tag = f"-{Nbins}bin-SRD_nz"
 #yaw_tag = ""
-rand_z_name = "Z"
+rand_z_name = "Z_SRD"
 ref_name = 'DELTA_F'
 ref_weight_name = 'NPIX'
 
 saveroot = outroot + f"run-{sim_num}/"
 path_unknown = saveroot + f"catalogue/{type_tag}{unk_tag}-zmin-{unk_zcut[0]}-zmax-{unk_zcut[1]}.fits"
 # access the delta files from the old folder
-path_reference = f"/pscratch/sd/q/qhang/desi-lya/results/run-{sim_num}/catalogue{ref_tag}/delta-{sim_mode_tag}.fits"
+#path_reference = f"/pscratch/sd/q/qhang/desi-lya/results/run-{sim_num}/catalogue{ref_tag}/delta-{sim_mode_tag}.fits"
 path_unk_rand = "/pscratch/sd/q/qhang/desi-lya/random-catalogue-overlap-w-z.fits"
 
 print(path_unknown)
-print(path_reference)
+#print(path_reference)
 print(path_unk_rand)
+
 
 zbins = [2,3,Nbins]
 edges = np.linspace(float(zbins[0]), float(zbins[1]), int(zbins[2])+1)
@@ -98,119 +104,80 @@ config = yaw.Configuration.create(
 )
 
 # LOADING CATALOGS
-CACHE_DIR = saveroot + f"yaw{cache_tag}/cache_{sim_mode_tag}/"
+CACHE_DIR = saveroot + "cache/"
 print("cache: ", CACHE_DIR)
 
 delete_and_recreate_cache_directory(CACHE_DIR)
 
-if os.path.isdir(os.path.join(CACHE_DIR, "unknown")):
-    print("Loading unknown from cache.")
-    cat_unknown = yaw.Catalog(cache_directory=os.path.join(CACHE_DIR, "unknown"))
-else:
-    # set up the catalogues:
-    cat_unknown = yaw.Catalog.from_file(
-        cache_directory=os.path.join(CACHE_DIR, "unknown"),
-        path=path_unknown,
-        ra_name="RA",
-        dec_name="DEC",
-        redshift_name="Z",
-        #weight_name="weight_column",  # optional
-        patch_num=patch_num,
-        progress=PROGRESS,
-        degrees=True,
-    )
-patch_centers = cat_unknown.get_centers()
+# let's set up a reference cataogue that is a trimed 
+# version of the actual catalog, to avoid taking 
+# too long to compute
+
+fin = fits.open(path_unknown)
+dataframe = {"RA": fin[1].data["RA"][::10],
+             "DEC": fin[1].data["DEC"][::10],
+             "Z":fin[1].data["Z"][::10],}
+dataframe = pd.DataFrame.from_dict(dataframe)
 
 
-cat_reference = yaw.Catalog.from_file(
-    cache_directory=os.path.join(CACHE_DIR, "reference"),
-    path=path_reference,
+# set up the catalogues:
+cat_unknown = yaw.Catalog.from_file(
+    cache_directory=os.path.join(CACHE_DIR, "unknown"),
+    path=path_unknown,
     ra_name="RA",
     dec_name="DEC",
-    redshift_name="Z",
-    weight_name=ref_weight_name,
-    kappa_name=ref_name,
+    #redshift_name="Z",
+    #weight_name="weight_column",  # optional
+    patch_num=patch_num,
+    progress=PROGRESS,
+    degrees=True,
+    overwrite=True,
+)
+patch_centers = cat_unknown.get_centers()
+
+cat_unk_rand = yaw.Catalog.from_file(
+    cache_directory=os.path.join(CACHE_DIR, "unk_rand"),
+    path=path_unk_rand,
+    ra_name="RA",
+    dec_name="DEC",
+    redshift_name=rand_z_name,
     patch_centers=patch_centers,
     progress=PROGRESS,
     degrees=True,
+    overwrite=True,
 )
 
-cat_ref_rand = None 
+# this is a 5% trimmed version
+cat_reference = yaw.Catalog.from_dataframe(
+    cache_directory=os.path.join(CACHE_DIR, "reference"),
+    dataframe=dataframe,
+    ra_name="RA",
+    dec_name="DEC",
+    redshift_name="Z",    
+    patch_centers=patch_centers,
+    progress=PROGRESS,
+    degrees=True,
+    overwrite=True,
+)
 
-
-if os.path.isdir(os.path.join(CACHE_DIR, "unk_rand")):
-    print("Loading random from cache.")
-    cat_unk_rand = yaw.Catalog(cache_directory=os.path.join(CACHE_DIR, "unk_rand"))
-else:
-    cat_unk_rand = yaw.Catalog.from_file(
-        cache_directory=os.path.join(CACHE_DIR, "unk_rand"),
-        path=path_unk_rand,
-        ra_name="RA",
-        dec_name="DEC",
-        redshift_name=rand_z_name,
-        patch_centers=patch_centers,
-        progress=PROGRESS,
-        degrees=True,
-    )
+cat_ref_rand = None
 
 print("Done loading catalogues")
 
 
-print("Computing w_pp")
-w_pp = autocorrelate(
-    config,
-    cat_unknown,
-    cat_unk_rand,
-    progress=PROGRESS
-)
-
-print("Computing w_ss")
-w_ss= autocorrelate_scalar(
-    config,
-    cat_reference,
-    progress=PROGRESS
-)
-
-
-print("Computing w_sp")
-w_sp = crosscorrelate_scalar(
+print("Computing galaxy w_sp")
+# auto is ok, cross gives error on redshift binning
+w_sp = crosscorrelate(
     config,
     cat_reference,
     cat_unknown,
-    unk_rand=cat_unk_rand,
+    ref_rand = cat_unk_rand,
+    unk_rand = None,
     progress=PROGRESS
 )
 
 print("Saving Jackknife realizations...")
 # let's save the jackknife realizations here, so we can compute other quantities ourselves if we need them
-
-
-# w_pp
-for jj in range(len(theta_range)):
-    for ii in range(Ntheta):
-        cts_pp = w_pp[ii]
-        wpp_jk = cts_pp.sample().samples
-        if ii == 0:
-            out = np.copy(wpp_jk)
-        else:
-            out = np.c_[out,wpp_jk]
-    fname = saveroot + f"yaw{yaw_tag}/w_pp-thetasplit-min-{theta_range[jj][0]}-max-{theta_range[jj][1]}.txt"
-    np.savetxt(fname, out)
-    print("Saved: ", fname)
-
-#w_ss
-for jj in range(len(theta_range)):
-    for ii in range(Ntheta):
-        cts_pp = w_ss[ii]
-        wpp_jk = cts_pp.sample().samples
-        if ii == 0:
-            out = np.copy(wpp_jk)
-        else:
-            out = np.c_[out,wpp_jk]
-    fname = saveroot + f"yaw{yaw_tag}/w_ss-{sim_mode_tag}-thetasplit-min-{theta_range[jj][0]}-max-{theta_range[jj][1]}.txt"
-    np.savetxt(fname, out)
-    print("Saved: ", fname)
-
 #w_sp
 for jj in range(len(theta_range)):
     for ii in range(Ntheta):
@@ -220,7 +187,7 @@ for jj in range(len(theta_range)):
             out = np.copy(wpp_jk)
         else:
             out = np.c_[out,wpp_jk]
-    fname = saveroot + f"yaw{yaw_tag}/w_sp-{sim_mode_tag}-thetasplit-min-{theta_range[jj][0]}-max-{theta_range[jj][1]}.txt"
+    fname = saveroot + f"yaw{yaw_tag}/w_sp-gal-{sim_mode_tag}-thetasplit-min-{theta_range[jj][0]}-max-{theta_range[jj][1]}.txt"
     np.savetxt(fname, out)
     print("Saved: ", fname)
 

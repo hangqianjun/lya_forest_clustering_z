@@ -15,6 +15,11 @@ from yaw.utils import parallel
 from yaw.correlation.corrfunc import ScalarCorrFunc
 
 import pandas as pd
+import argparse
+
+parser = argparse.ArgumentParser(description='Corr Coeff')
+parser.add_argument('-sim_num', type=int, default=0, help='Which sim to load in, 0-9')
+args = parser.parse_args()
 
 def delete_and_recreate_cache_directory(cache_dir):
     if parallel.on_root():  # if running with MPI, this is only executed on rank 0
@@ -24,27 +29,30 @@ def delete_and_recreate_cache_directory(cache_dir):
 
 njn=64
 # here can test a range of scales
-theta_min=[5,10,15]
-theta_max=[15,30,50]
+Ntheta=15
+theta_range=[[1,50]]
+theta_min = []
+theta_max = []
+for ii in range(len(theta_range)):
+    thetas = np.logspace(np.log10(theta_range[ii][0]),np.log10(theta_range[ii][1]),Ntheta+1)
+    for jj in range(Ntheta):
+        theta_min.append(thetas[jj])
+        theta_max.append(thetas[jj+1])
 theta_scaled=None
 resolution=None
 unit='arcmin'
+Nbins=20
 
-Nbins=40
-
-outroot = "/pscratch/sd/q/qhang/desi-lya/results/"
-sim_num = 0
+outroot = "/pscratch/sd/q/qhang/desi-lya/results-newbias/"
+sim_num = args.sim_num
 type_tag = "unknown"
-unk_tag = ""
-unk_zcut=[1.8,3.0]
+unk_tag = "-SRD_nz"
+unk_zcut=[0,3]
 
-if Nbins == 40:
-    ref_tag = ""
-    yaw_tag = ""
-else:
-    ref_tag = f"-{Nbins}bin"
-    yaw_tag = f"-{Nbins}bin"
+ref_tag = f"-{Nbins}bin"
+yaw_tag = f"-{Nbins}bin-SRD_nz"
 
+cache_tag = ""
 sim_mode_tag = "raw"
 rand_z_name = "Z"
 ref_weight_name = "NPIX"
@@ -52,7 +60,7 @@ ref_name = "DELTA_F"
 
 saveroot = outroot + f"run-{sim_num}/"
 path_unknown = saveroot + f"catalogue/{type_tag}{unk_tag}-zmin-{unk_zcut[0]}-zmax-{unk_zcut[1]}.fits"
-path_reference = saveroot + f"catalogue{ref_tag}/delta-{sim_mode_tag}.fits"
+path_reference = f"/pscratch/sd/q/qhang/desi-lya/results/run-{sim_num}/catalogue{ref_tag}/delta-{sim_mode_tag}.fits"
 path_unk_rand = "/pscratch/sd/q/qhang/desi-lya/random-catalogue-overlap-w-z.fits"
 
 zbins = [2,3,Nbins]
@@ -67,7 +75,7 @@ PROGRESS = True  # if you want to see a progress bar
 patch_num = njn
 
 # LOADING CATALOGS
-CACHE_DIR = saveroot + f"yaw{yaw_tag}/cache_{sim_mode_tag}-zbins/"
+CACHE_DIR = saveroot + "cache/"
 print("cache: ", CACHE_DIR)
 
 delete_and_recreate_cache_directory(CACHE_DIR)
@@ -109,8 +117,8 @@ unknownz_bin = np.digitize(unknownz, edges)
 
 # here define the unknown sample for each redshift slice: and measure the cross-correlation, save them:
 W_SP = {}
-#for ii in range(len(edges)-1):
-for ii in range(38):
+
+for ii in range(Nbins-1):
     print(f"Working on bin {ii}...")
     # here select the catalog:
     ind = unknownz_bin == ii + 1
@@ -156,6 +164,20 @@ for ii in range(38):
 
     W_SP[ii] = w_sp
 
+# change save method:
+for jj in range(len(theta_range)):
+    out = np.zeros((njn, Nbins*Ntheta))
+    for zz in range(Nbins-1): 
+        for ii in range(Ntheta):
+            cts_pp = W_SP[zz][ii]
+            wpp_jk = cts_pp.sample().samples
+            ind = zz*Ntheta + ii
+            out[:,ind] = wpp_jk[:,0]
+    fname = saveroot + f"yaw{yaw_tag}/w_sp-zbins-{sim_mode_tag}-thetasplit-min-{theta_range[jj][0]}-max-{theta_range[jj][1]}.txt"
+    np.savetxt(fname, out)
+    print("Saved: ", fname)
+
+"""
 w_sp_theta = []
 for ii in range(len(theta_min)):
     vec = np.zeros((len(edges)-1, 2))
@@ -168,3 +190,4 @@ for ii in range(len(theta_min)):
 for ii in range(len(theta_min)):
     fname = saveroot + f"yaw{yaw_tag}/w_sp-zbins-{sim_mode_tag}-theta-min-{theta_min[ii]}-max-{theta_max[ii]}.txt"
     np.savetxt(fname, np.c_[zsamp, w_sp_theta[ii]])
+"""

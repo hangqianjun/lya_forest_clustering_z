@@ -64,12 +64,30 @@ if args.sub == "sub_gal_srd":
     job_name="lya"
     env="pymaster"
     
+    for ii in range(1):
+        comm=f'srun -n 32 python make_gal_catalogue-newbias.py -sim_num {ii} -source 2 -zcut 0 3 -target_nz SRD -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
+        output=f"lya-make-gal-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=0)
+
+# LBG
+if args.sub == "sub_gal_lbg":
+    sbatchfile = "submit_make_gal_catalogue.sbatch"
+    time='00:15:00'
+    nodes=1
+    ntasks=32
+    job_name="lya"
+    env="pymaster"
+    
     for ii in range(1,10):
-        comm=f'srun -n 32 python make_gal_catalogue.py -sim_num {ii} -source 2 -zcut 0 3 -target_nz SRD -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
+        comm=f'srun -n 32 python make_gal_catalogue-newbias.py -sim_num {ii} -source 2 -zcut 0 3 -target_nz LBG -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
         output=f"lya-make-gal-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
+
+        
 # +++++ +++++
 
         
