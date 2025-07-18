@@ -48,8 +48,8 @@ if args.sub == "sub_gal":
     job_name="lya"
     env="pymaster"
     
-    for ii in range(1):
-        comm=f'srun -n 32 python make_gal_catalogue.py -sim_num {ii} -source 2 -zcut 1.8 3.0 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
+    for ii in range(1,10):
+        comm=f'srun -n 32 python make_gal_catalogue-newbias.py -sim_num {ii} -source 2 -zcut 1.8 3.0 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -nchunks 32 -run_mode 0 > lya-make-gal-{ii}.log \n\n'
         output=f"lya-make-gal-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,

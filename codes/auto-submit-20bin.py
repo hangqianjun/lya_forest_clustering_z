@@ -41,13 +41,13 @@ def write_sbatch(sbatchfile,comm,time='00:15:00',nodes=1,ntasks=1,
 # submit raw lya catalogue:
 if args.sub == "sub_lya_raw":
     sbatchfile = "submit_make_lya_catalogue-raw.sbatch"
-    time='00:40:00'
+    time='00:25:00'
     nodes=1
     ntasks=64
     job_name="lya"
     env="pymaster"
     
-    for ii in range(1,10):
+    for ii in range(2,10):
         comm=f'srun -n 64 python make_lya_catalogue-raw.py -sim_num {ii} -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results/ -nchunks 64 -run_mode 0 -cat_tag 20bin > deltaf-raw-{ii}.log \n\n'
         output=f"deltaf-raw-{ii}.out"
         print('Running: ',comm)
@@ -178,7 +178,7 @@ if args.sub == "sub_yaw_raw_theta":
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(10):
+    for ii in range(1,10):
         comm=f'python measure_yaw-w-random-theta.py -sim_num {ii} -sim_mode 0 -source 2 -deltaf_weight 1 -unk_zcut 1.8 3.0 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -theta 1 50 15 -ref_tag 20bin -yaw_tag 20bin -combtheta 0 > lya-yaw-raw-thetasplit-{ii}.log \n\n'
         output=f"lya-yaw-raw-thetasplit-{ii}.out"
         print('Running: ',comm)
@@ -311,7 +311,7 @@ if args.sub == "sub_yaw_raw_srd_theta":
     job_name="lya"
     env="yaw_env"
     
-    for ii in range(10):
+    for ii in range(1,10):
         comm=f'python measure_yaw-w-random-theta.py -sim_num {ii} -sim_mode 0 -source 2 -deltaf_weight 1 -unk_zcut 0 3 -zbins 2 3 20 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -theta 1 50 15 -unk_tag SRD_nz -ref_tag 20bin -yaw_tag 20bin-SRD_nz -combtheta 0 > lya-yaw-raw-thetasplit-{ii}.log \n\n'
         output=f"lya-yaw-raw-thetasplit-{ii}.out"
         print('Running: ',comm)

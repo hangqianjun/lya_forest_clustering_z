@@ -27,7 +27,6 @@ parser.add_argument('-unk_zcut', nargs='+', default=[1.8,3.0], help='Redshift cu
 parser.add_argument('-zbins', nargs='+', default=[2,3,40], help='Zmin, Zmax, Nbin')
 parser.add_argument('-zbins_file', type=str, default="", help='Redshift bin edges file, if provided will overwrite zbins. It is encouraged to use this option for reproducibility.')
 parser.add_argument('-outroot', type=str, default="", help='Where to save the catalogues.')
-#parser.add_argument('-plot', type=int, default=0, help='0=no plot, 1=produce and save a plot for the results, 2=skip correlation, just plot.')
 parser.add_argument('-theta', nargs='+', default=[20,50,15], help="theta min, max, nbins -> log bins.")
 parser.add_argument('-run_unknown_corr', type=int, default=0, help='Notice this only needs to be run once for all delta_f modes. 0=automode, searches for the w_pp file in the results directory; if not found, will run unknown auto-correlation; 1=run and overwrite the existing file if any.')
 parser.add_argument('-ref_tag', type=str, default="", help="tag for the ref folders; valid tags: None, 20bin")
@@ -257,17 +256,16 @@ if os.path.isfile(wppfname)!=True:
         random=cat_unk_rand,
         progress=PROGRESS
     )
-
-#w_pp
-for ii in range(int(args.theta[2])):
-    cts_pp = w_pp[ii]
-    wpp_jk = cts_pp.sample().samples
-    if ii == 0:
-        out = np.copy(wpp_jk)
-    else:
-        out = np.c_[out,wpp_jk]
-np.savetxt(wppfname, out)
-print("Saved: ", fname)
+    #w_pp
+    for ii in range(int(args.theta[2])):
+        cts_pp = w_pp[ii]
+        wpp_jk = cts_pp.sample().samples
+        if ii == 0:
+            out = np.copy(wpp_jk)
+        else:
+            out = np.c_[out,wpp_jk]
+    np.savetxt(wppfname, out)
+    print("Saved: ", wppfname)
 
 
 # combine the theta measurements if needed:

@@ -50,7 +50,7 @@ if(0):
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)
 
-if(1):
+if(0):
     sbatchfile = "submit_gal_cross.sbatch"
     time='01:00:00'
     nodes=1
@@ -61,6 +61,35 @@ if(1):
     for ii in range(10):
         comm=f'python measure_yaw-gal-cross.py -sim_num {ii} > gal_cross-{ii}.log \n\n'
         output=f"gal_cross-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=1)
+
+if(0):
+    sbatchfile = "submit_cross-zbin-corr.sbatch"
+    time='01:00:00'
+    nodes=1
+    ntasks=64
+    job_name="lya"
+    env="yaw_env"
+    
+    for ii in range(1,10):
+        comm=f'python measure_cross-zbin-corr.py -sim_num {ii} > cross-zbin-corr-{ii}.log \n\n'
+        output=f"cross-zbin-corr-{ii}.out"
+        print('Running: ',comm)
+        write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
+                    run=1)
+if(1):
+    sbatchfile = "submit_delta_norm.sbatch"
+    time='00:30:00'
+    nodes=1
+    ntasks=64
+    job_name="lya"
+    env="pymaster"
+    
+    for ii in range(1,10):
+        comm=f'srun -n 64 python make_mean_deltaf_raw.py -sim_num {ii} -nchunks 64 -outroot /pscratch/sd/q/qhang/desi-lya/results-newbias/ -run_mode 0 > delta_norm-{ii}.log \n\n'
+        output=f"delta_norm-{ii}.out"
         print('Running: ',comm)
         write_sbatch(sbatchfile,comm,time=time,nodes=nodes,ntasks=ntasks,job_name=job_name,output=output,env=env,
                     run=1)

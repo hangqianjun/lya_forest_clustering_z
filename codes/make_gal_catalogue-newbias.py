@@ -246,4 +246,8 @@ elif args.run_mode == 1:
         saveroot + f"nz-{type_tag}{cat_tag}-zmin-{zbins[0]}-zmax-{zbins[1]}-chunk-*.txt",
         saveroot + f"galmap-{type_tag}{cat_tag}-zmin-{zbins[0]}-zmax-{zbins[1]}-chunk-*.fits",
     ]
-    print(f"Files: {delete_names} can now be safely deleted.")
+
+    for f in delete_names:
+        os.system(f"rm {f}")
+        
+    print(f"Files: {delete_names} have been safely deleted.")

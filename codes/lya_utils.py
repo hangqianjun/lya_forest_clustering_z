@@ -282,3 +282,26 @@ def dump_load(filename):
         #self.impute = json.load(fin)
     #print('loaded impute ditionary:',filename)
     return stuff
+
+
+def get_w_comb(w_thetasplit, njn, Ntheta, Nbins, thetas, alpha, theta_mask):
+        # do the selection:
+        mask_min = theta_mask[0]
+        mask_max = theta_mask[1]
+        selind = np.where((thetas>=mask_min)&(thetas<=mask_max))[0][:-1]
+            
+        Theta_bincen = (thetas[1:] + thetas[:-1])/2.
+        dTheta=np.array([thetas[i+1]-thetas[i] for i in range(Ntheta)])
+        
+        w_comb_jk = np.zeros((njn,Nbins))
+        for jk in range(njn):
+            data_to_get = w_thetasplit[jk, :].reshape((Ntheta,Nbins))
+            for ii in range(Nbins):
+                denom = sum(Theta_bincen**alpha*dTheta)
+                w_comb_jk[jk, ii] = sum(data_to_get[selind,ii]*Theta_bincen[selind]**alpha*dTheta[selind])/denom
+        mean = np.mean(w_comb_jk, axis=0)
+        std = np.std(w_comb_jk, axis=0)*np.sqrt(njn)
+        w_comb = np.c_[mean,std]
+        w_comb = np.c_[w_comb, w_comb_jk.T]
+        
+        return w_comb

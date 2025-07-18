@@ -25,11 +25,11 @@ parser.add_argument('-outroot', type=str, default="", help='Path to the results;
 parser.add_argument('-linear', type=int, default=1, help="0=nonlinear theory, 1=linear theory")
 parser.add_argument('-unknown_bg', type=int, default=0, help="0=bias of unknown sample is known, 1=not unknwon")
 parser.add_argument('-theta', nargs='+', default=[10,30,10], help="Lower and upper limit of the theta angles in arcmin, and how many bins")
-parser.add_argument('-alpha', type=float, default=0, help="The scaling power to combine different thetas.")
+parser.add_argument('-alpha', type=float, default=None, help="The scaling power to combine different thetas. If None do not produce theta combined w.")
 parser.add_argument('-theta_mask', nargs='+', default=[-1,-1], help="additional lower and upper limit applied on theta in order to mask some scales.")
 parser.add_argument('-zbins', nargs='+', default=[2,3,20], help='Zmin, Zmax, Nbin')
 parser.add_argument('-yaw_tag', type=str, default="", help="tag for naming the yaw folders; used for different yaw settings such as number of redshift bins. Default is given by the default arguments above.")
-parser.add_argument('-deltaf_weight', type=str, default="", help='not implemented')
+parser.add_argument('-nz_ref_path', type=str, default="", help='path to the reference n(z), if empty assumes top-hat function. If supplied, will interpolate between them.')
 parser.add_argument('-zgrid', nargs='+', default=[1.8,3.0,100], help="zgrid to use for the integral output.")
 args = parser.parse_args()
 
@@ -477,8 +477,9 @@ def beta_law_lya(z):
     return 1.53
 
 # theta weighting:
-def theta_weight_func(theta):
-    return theta**args.alpha
+if args.alpha != None:
+    def theta_weight_func(theta):
+        return theta**args.alpha
 
 #####===========Directories and tags==================
 
@@ -530,6 +531,39 @@ fname_base = saveroot + f"wsp_int_{bg_tag}_{lin_tag}_theta_{round(theta_edges[0]
 np.savetxt(fname_base + ".zgrid.txt", zgrid)
 np.savetxt(fname_base + ".theta.txt", theta_arcmin)
 
+
+# define reference n(z) functions here:
+NZ_REF = []
+
+if args.nz_ref_path == "":
+    print("Using top-hat nz ref")
+    for jj, z_ref in enumerate(meanz):
+        # for now define it as a top hat, in reality it should be give by n_F(z), close to a top hat.
+        def nz_law_ref(z):
+            if (z>(z_ref-deltaz/2.))&(z<(z_ref+deltaz/2.)):
+                return 1/deltaz
+            else:
+                return 0
+        NZ_REF.append(nz_law_ref)
+else:
+    print("Using input nz ref")
+    fin = np.loadtxt(args.nz_ref_path)
+    # expect column 0 to be zgrid, column 1: to be nz_ref
+    # note this would still have the same edges, only the shape deviates from a top-hat
+    for jj, z_ref in enumerate(meanz):
+        nz_zsamp = fin[:,0]
+        dz = nz_zsamp[1]-nz_zsamp[0]
+        nz_use = fin[:,1+jj]
+        # normalize:
+        if sum(nz_use)!=0:
+            nz_use = nz_use/sum(nz_use)/dz
+            nz_law_ref = interpolate.interp1d(nz_zsamp,nz_use,fill_value=0,bounds_error=False)
+        else:
+            def nz_law_ref(z):
+                return 0
+        NZ_REF.append(nz_law_ref)
+
+
 if args.unknown_bg == 0:
     # compute integral with known bg
     wsp_int1 = np.zeros((len(zgrid), len(meanz), len(theta_arcmin)))
@@ -553,17 +587,18 @@ if args.unknown_bg == 0:
                 wsp_int1[ii, jj, kk] = wsp_full_rsd_intz1(z_unk, nz_law_ref, zlim, theta, 
                                    beta_law_ref, beta_law_unk, bias_law_ref, bias_law_unk, linear=linear)
     
-    # combine angular bins:
-    wsp_int1_thetacomb = np.zeros((len(meanz), len(zgrid)))
-
-    for jj, z_ref in enumerate(meanz):
-        w_theta_z = wsp_int1[:,jj,:].T
-        wsp_int1_thetacomb[jj,:] = w_theta_comb(w_theta_z, theta_edges, theta_weight_func, theta_weight_norm=True)
-    
-    
-    ## -> to unpack vstack, reshape results into the original shape
     np.savetxt(fname_base + ".thetasplit_int.txt", np.vstack(wsp_int1))
-    np.savetxt(fname_base + f".thetacomb_alpha-{args.alpha}_int.txt", wsp_int1_thetacomb)
+
+    if args.alpha != None:
+        # combine angular bins:
+        wsp_int1_thetacomb = np.zeros((len(meanz), len(zgrid)))
+    
+        for jj, z_ref in enumerate(meanz):
+            w_theta_z = wsp_int1[:,jj,:].T
+            wsp_int1_thetacomb[jj,:] = w_theta_comb(w_theta_z, theta_edges, theta_weight_func, theta_weight_norm=True)
+        
+        ## -> to unpack vstack, reshape results into the original shape
+        np.savetxt(fname_base + f".thetacomb_alpha-{args.alpha}_int.txt", wsp_int1_thetacomb)
     print("saved files with prefix", fname_base)
         
             
@@ -594,23 +629,25 @@ elif args.unknown_bg == 1:
                 
                 wsp_fmu_int1[ii, jj, kk] = wsp_rsd_fmu_intz1(z_unk, nz_law_ref, zlim, theta, 
                                        beta_law_ref, bias_law_ref, linear=linear)
-
-    # combine angular bins:
-    wsp_bg_int1_thetacomb = np.zeros((len(meanz), len(zgrid)))
-    wsp_fmu_int1_thetacomb = np.zeros((len(meanz), len(zgrid)))
-    
-    for jj, z_ref in enumerate(meanz):
-        w_theta_z = wsp_bg_int1[:,jj,:].T
-        wsp_bg_int1_thetacomb[jj,:] = w_theta_comb(w_theta_z, theta_edges, theta_weight_func, theta_weight_norm=True)
         
-        w_theta_z = wsp_fmu_int1[:,jj,:].T
-        wsp_fmu_int1_thetacomb[jj,:] = w_theta_comb(w_theta_z, theta_edges, theta_weight_func, theta_weight_norm=True)
-    
-    # save the results:
     np.savetxt(fname_base + ".thetasplit_bg_int.txt", np.vstack(wsp_bg_int1))
     np.savetxt(fname_base + ".thetasplit_fmu_int.txt", np.vstack(wsp_fmu_int1))
-    np.savetxt(fname_base + f".thetacomb_alpha-{args.alpha}_bg_int.txt", wsp_bg_int1_thetacomb)
-    np.savetxt(fname_base + f".thetacomb_alpha-{args.alpha}_fmu_int.txt", wsp_fmu_int1_thetacomb)
+        
+    if args.alpha != None:
+        # combine angular bins:
+        wsp_bg_int1_thetacomb = np.zeros((len(meanz), len(zgrid)))
+        wsp_fmu_int1_thetacomb = np.zeros((len(meanz), len(zgrid)))
+        
+        for jj, z_ref in enumerate(meanz):
+            w_theta_z = wsp_bg_int1[:,jj,:].T
+            wsp_bg_int1_thetacomb[jj,:] = w_theta_comb(w_theta_z, theta_edges, theta_weight_func, theta_weight_norm=True)
+            
+            w_theta_z = wsp_fmu_int1[:,jj,:].T
+            wsp_fmu_int1_thetacomb[jj,:] = w_theta_comb(w_theta_z, theta_edges, theta_weight_func, theta_weight_norm=True)
+        
+        # save the results:
+        np.savetxt(fname_base + f".thetacomb_alpha-{args.alpha}_bg_int.txt", wsp_bg_int1_thetacomb)
+        np.savetxt(fname_base + f".thetacomb_alpha-{args.alpha}_fmu_int.txt", wsp_fmu_int1_thetacomb)
     print("saved files with prefix", fname_base)
 
 
